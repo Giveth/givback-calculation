@@ -1,0 +1,19 @@
+version: '3.3'
+
+services:
+  givback-calculation:
+    #see https://github.com/docker/build-push-action/tree/releases/v1#tag_with_ref
+
+    # is sometime you want to rollback you can change the tag manually in server( not commit to git)
+    # from master to your desired commit hash and the run command:
+    # 1. docker-compose -f docker-compose-develop.yml pull
+    # 2. docker-compose -f docker-compose-develop.yml down
+    # 3. docker-compose -f docker-compose-develop.yml up -d
+    image: ghcr.io/giveth/givback-calculation:latest
+    environment:
+      - NODE_ENV=develop
+      - GIVETHIO_BASE_URL=https://mainnet.serve.giveth.io
+      - TRACE_BASE_URL=https://feathers.beta.giveth.io
+
+    ports:
+      - "3041:3000"
