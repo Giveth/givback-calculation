@@ -1,0 +1,22 @@
+{
+  "name": "givback-calculation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.21.4",
+    "express": "^4.17.1",
+    "graphql": "^15.6.0",
+    "graphql-request": "^3.5.0",
+    "moment": "^2.29.1",
+    "swagger-ui-express": "^4.1.6",
+    "underscore": "^1.13.1"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "swagger": "2.0",
+  "basePath": "/",
+  "paths": {
+    "/calculate-givback": {
+      "get": {
+        "parameters": [
+          {
+            "name": "startDate",
+            "type": "string",
+            "default": "2021/09/01-00:00:00",
+            "in": "query"
+          },
+          {
+            "name": "endDate",
+            "type": "string",
+            "default": "2021/12/31-00:00:00",
+            "in": "query"
+          },
+          {
+            "name": "givPrice",
+            "type": "string",
+            "default": "1",
+            "in": "query"
+          },
+          {
+            "name": "givAvailable",
+            "type": "string",
+            "default": "1000",
+            "in": "query"
+          },
+          {
+            "name": "givMaxFactor",
+            "type": "string",
+            "default": "0.75",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
+    }
+
+  }
+}
