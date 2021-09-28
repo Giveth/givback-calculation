@@ -11,8 +11,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get(`/calculate-givback`, async (req, res) => {
   try {
     console.log('start calculating')
-    const startDate = req.query.startDate;
-    const endDate = req.query.endDate;
+    const {download, endDate, startDate} = req.query;
     const givPrice = Number(req.query.givPrice)
     const givAvailable = Number(req.query.givAvailable)
     const givMaxFactor = Number(req.query.givMaxFactor)
@@ -47,18 +46,29 @@ app.get(`/calculate-givback`, async (req, res) => {
         giverAddress: item.giverAddress,
         totalAmount: Number(item.totalAmount.toFixed(2)),
         givback: Number(givback.toFixed(2)),
-        share: Number(share.toFixed(6)),
+        share: Number(share.toFixed(8)),
       }
+    }).filter(item => {
+      return item.share > 0
     })
-    res.send({
+    const response = {
       raisedValueSum: Number(raisedValueSum.toFixed(2)),
       givDistributed: Number(givDistributed.toFixed(2)),
       givbacks: donationsWithShare
-    })
+    };
+    if (download === 'yes') {
+      const data = JSON.stringify(response, null,4);
+      const fileName = `givbackreport_${startDate}-${endDate}.json`;
+      res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+      res.setHeader('Content-type', 'application/json');
+      res.send(data)
+    } else {
+      res.send(response)
+    }
   } catch (e) {
     console.log("error happened", e)
     res.status(400).send({
-      message:e.message
+      message: e.message
     })
   }
 })

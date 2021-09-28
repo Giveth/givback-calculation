@@ -34,6 +34,14 @@
             "type": "string",
             "default": "0.75",
             "in": "query"
+          },
+          {
+            "name": "download",
+            "type": "string",
+            "description": "If you want to see json here set no, but if you want to download a file set yes",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
           }
         ],
         "responses": {
