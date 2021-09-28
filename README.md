@@ -1,5 +1,7 @@
 This project has a endpoint to calculate the GIVback rewards.
 the calculation formula  inspired by  https://github.com/Giveth/givbacks-scripts
+and this is the notion notes about how we distribute the givback tokens
+https://www.notion.so/Spec-GIVbacks-MVP-2d6335964e5b414082e41d7df89f9b3d
 
 ## Requirements
 Node 10 or higher

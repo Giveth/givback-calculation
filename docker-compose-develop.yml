@@ -16,4 +16,4 @@ services:
       - TRACE_BASE_URL=https://feathers.beta.giveth.io
 
     ports:
-      - "3041:3000"
+      - "3051:3000"
