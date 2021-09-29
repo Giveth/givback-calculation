@@ -11,10 +11,11 @@ https://www.notion.so/Spec-GIVbacks-MVP-2d6335964e5b414082e41d7df89f9b3d
 Node 10 or higher
 
 ## Instalation and run
-1. `git clone `
-2. `npm i`
-3. GIVETHIO_BASE_URL=https://mainnet.serve.giveth.io TRACE_BASE_URL=https://feathers.beta.giveth.io npm start
-4. Browse http://localhost:3000/api-docs
+1. `git clone https://github.com/Giveth/givback-calculation.git`
+2. `cd givback-calculation`
+3. `npm i`
+4. `GIVETHIO_BASE_URL=https://mainnet.serve.giveth.io TRACE_BASE_URL=https://feathers.beta.giveth.io npm start`
+5. Browse http://localhost:3000/api-docs
 
 
 ## Deploy
