@@ -12,7 +12,7 @@ const getDonationsReport = async (beforeDate, endDate) => {
   /**
    * @see @link{https://feathers.beta.giveth.io/docs/?url=/docs#/verifiedProjectsGiversReport/get_verifiedProjectsGiversReport}
    */
-  const url = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beforeDate}&toDate=${endDate}&allProjects=false`
+  const url = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beforeDate}&toDate=${endDate}&allProjects=true`
   const result = (await axios.get(url)).data.data
   return result.map(item =>{
       return {
