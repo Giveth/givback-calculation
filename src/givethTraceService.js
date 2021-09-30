@@ -1,6 +1,5 @@
 const axios = require('axios')
-const traceBaseUrl = process.env.TRACE_BASE_URL || 'https://feathers.beta.giveth.io'
-// const traceBaseUrl = process.env.TRACE_BASE_URL
+const traceBaseUrl = process.env.TRACE_BASE_URL
 
 /**
  *
@@ -20,6 +19,7 @@ const getDonationsReport = async (beforeDate, endDate) => {
           giverAddress:item.giverAddress.toLowerCase()
       }
   })
+
 }
 
 module.exports = {

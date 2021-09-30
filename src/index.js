@@ -14,10 +14,16 @@ app.get(`/calculate-givback`, async (req, res) => {
     const {download, endDate, startDate} = req.query;
     const givPrice = Number(req.query.givPrice)
     const givAvailable = Number(req.query.givAvailable)
-    const givMaxFactor = Number(req.query.givMaxFactor)
     const givWorth = givAvailable * givPrice
+    const givMaxFactor = Number(req.query.givMaxFactor)
     const traceDonations = await givethTraceDonations(startDate, endDate);
     const givethDonations = await givethIoDonations(startDate, endDate);
+    const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
+      return previousValue + currentValue.totalAmount
+    }, 0);
+    const givethioDonationsAmount = givethDonations.reduce((previousValue, currentValue) => {
+      return previousValue + currentValue.totalAmount
+    }, 0);
     const groupByGiverAddress = _.groupBy(traceDonations.concat(givethDonations), 'giverAddress')
     const result = _.map(groupByGiverAddress, function (value, key) {
       return {
@@ -33,15 +39,11 @@ app.get(`/calculate-givback`, async (req, res) => {
     for (const donation of result) {
       raisedValueSum += donation.totalAmount;
     }
-    let givDistributed;
-    if (raisedValueSum > givWorth) {
-      givDistributed = givAvailable
-    } else {
-      givDistributed = (givMaxFactor * raisedValueSum) / givPrice
-    }
+    const givFactor = Math.min(givWorth/raisedValueSum, givMaxFactor)
+    const givDistributed = givFactor * raisedValueSum;
     const donationsWithShare = result.map(item => {
       const share = item.totalAmount / raisedValueSum;
-      const givback = givDistributed * share;
+      const givback = item.totalAmount  * givFactor;
       return {
         giverAddress: item.giverAddress,
         totalAmount: Number(item.totalAmount.toFixed(2)),
@@ -52,8 +54,11 @@ app.get(`/calculate-givback`, async (req, res) => {
       return item.share > 0
     })
     const response = {
-      raisedValueSum: Number(raisedValueSum.toFixed(2)),
-      givDistributed: Number(givDistributed.toFixed(2)),
+      raisedValueSum: Math.ceil(raisedValueSum),
+      givDistributed: Math.ceil(givDistributed),
+      traceDonationsAmount :Math.ceil(traceDonationsAmount),
+      givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
+      givFactor : Number(givFactor.toFixed(4)),
       givbacks: donationsWithShare
     };
     if (download === 'yes') {

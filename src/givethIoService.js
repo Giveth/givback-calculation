@@ -2,8 +2,7 @@ const {gql, request} = require('graphql-request');
 const moment = require('moment')
 const _ = require('underscore')
 
-const givethiobaseurl = process.env.GIVETHIO_BASE_URL || 'https://mainnet.serve.giveth.io'
-// const givethiobaseurl = process.env.GIVETHIO_BASE_URL
+const givethiobaseurl = process.env.GIVETHIO_BASE_URL
 
 /**
  *
