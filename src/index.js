@@ -39,11 +39,11 @@ app.get(`/calculate-givback`, async (req, res) => {
     for (const donation of result) {
       raisedValueSum += donation.totalAmount;
     }
-    const givFactor = Math.min(givWorth/raisedValueSum, givMaxFactor)
+    const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
     const givDistributed = givFactor * raisedValueSum;
     const donationsWithShare = result.map(item => {
       const share = item.totalAmount / raisedValueSum;
-      const givback = item.totalAmount  * givFactor;
+      const givback = item.totalAmount * givFactor;
       return {
         giverAddress: item.giverAddress,
         totalAmount: Number(item.totalAmount.toFixed(2)),
@@ -56,13 +56,13 @@ app.get(`/calculate-givback`, async (req, res) => {
     const response = {
       raisedValueSum: Math.ceil(raisedValueSum),
       givDistributed: Math.ceil(givDistributed),
-      traceDonationsAmount :Math.ceil(traceDonationsAmount),
+      traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
-      givFactor : Number(givFactor.toFixed(4)),
+      givFactor: Number(givFactor.toFixed(4)),
       givbacks: donationsWithShare
     };
     if (download === 'yes') {
-      const data = JSON.stringify(response, null,4);
+      const data = JSON.stringify(response, null, 4);
       const fileName = `givbackreport_${startDate}-${endDate}.json`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
@@ -77,6 +77,50 @@ app.get(`/calculate-givback`, async (req, res) => {
     })
   }
 })
+
+app.get(`/donations-leaderboard`, async (req, res) => {
+  try {
+    console.log('start calculating')
+    const {total, endDate, startDate} = req.query;
+    const numberOfLeaderBoard = Number(total) ||10
+    const traceDonations = await givethTraceDonations(startDate, endDate);
+    const givethDonations = await givethIoDonations(startDate, endDate);
+    const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
+      return previousValue + currentValue.totalAmount
+    }, 0);
+    const givethioDonationsAmount = givethDonations.reduce((previousValue, currentValue) => {
+      return previousValue + currentValue.totalAmount
+    }, 0);
+    const groupByGiverAddress = _.groupBy(traceDonations.concat(givethDonations), 'giverAddress')
+    const result = _.map(groupByGiverAddress, function (value, key) {
+      return {
+        giverAddress: key.toLowerCase(),
+        totalAmount: _.reduce(value, function (total, o) {
+          return total + o.totalAmount;
+        }, 0)
+      };
+    }).sort((a, b) => {
+      return b.totalAmount - a.totalAmount
+    });
+    const response = {
+      traceDonationsAmount: Math.ceil(traceDonationsAmount),
+      givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
+      totalDonationsAmount : Math.ceil(givethioDonationsAmount)+Math.ceil(traceDonationsAmount),
+      traceLeaderboard :traceDonations.slice(0,numberOfLeaderBoard) ,
+      givethIoLeaderboard:givethDonations.slice(0,numberOfLeaderBoard) ,
+      totalLeaderboard: result.slice(0,numberOfLeaderBoard)
+    };
+
+    res.send(response)
+  } catch (e) {
+    console.log("error happened", e)
+    res.status(400).send({
+      message: e.message
+    })
+  }
+})
+
+
 app.listen(3000, () => {
   console.log('listening to port 3000')
 })

@@ -51,6 +51,36 @@
 
         }
       }
+    },
+    "/donations-leaderboard": {
+      "get": {
+        "parameters": [
+          {
+            "name": "startDate",
+            "type": "string",
+            "default": "2021/09/01-00:00:00",
+            "in": "query"
+          },
+          {
+            "name": "endDate",
+            "type": "string",
+            "default": "2021/12/31-00:00:00",
+            "in": "query"
+          },
+          {
+            "name": "total",
+            "type": "number",
+            "default": "10",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
     }
 
   }
