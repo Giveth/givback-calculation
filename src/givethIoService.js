@@ -29,8 +29,10 @@ const getDonationsReport = async (beforeDate, endDate) => {
             createdAt
             project {
               giveBacks
+              verified
             }
             fromWalletAddress
+            status
           }
         }
     `;
@@ -42,6 +44,8 @@ const getDonationsReport = async (beforeDate, endDate) => {
         moment(donation.createdAt) < secondDate
         && moment(donation.createdAt) > firstDate
         && donation.valueUsd
+        && donation.project.verified
+        && donation.status ==='verified'
         // && donation.project.giveBacks
     )
 
