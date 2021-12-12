@@ -4,6 +4,7 @@ const express = require('express');
 const _ = require('underscore');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
+const {createSmartContractCallParams} = require("./utils");
 
 const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -59,7 +60,8 @@ app.get(`/calculate-givback`, async (req, res) => {
       traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
       givFactor: Number(givFactor.toFixed(4)),
-      givbacks: donationsWithShare
+      smartContractCallParams: createSmartContractCallParams(donationsWithShare.filter(givback=> givback.givback >0)),
+      givbacks: donationsWithShare,
     };
     if (download === 'yes') {
       const data = JSON.stringify(response, null, 4);
