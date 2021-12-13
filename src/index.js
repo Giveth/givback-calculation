@@ -41,13 +41,13 @@ app.get(`/calculate-givback`, async (req, res) => {
       raisedValueSum += donation.totalAmount;
     }
     const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
-    const givDistributed = givFactor * raisedValueSum;
+    const givDistributed = givFactor * (raisedValueSum/givPrice);
     const donationsWithShare = result.map(item => {
       const share = item.totalAmount / raisedValueSum;
-      const givback = item.totalAmount * givFactor;
+      const givback = (item.totalAmount/givPrice) * givFactor;
       return {
         giverAddress: item.giverAddress,
-        totalAmount: Number(item.totalAmount.toFixed(2)),
+        totalAmount: Number((item.totalAmount/givPrice).toFixed(2)),
         givback: Number(givback.toFixed(2)),
         share: Number(share.toFixed(8)),
       }
