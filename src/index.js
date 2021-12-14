@@ -20,7 +20,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get(`/calculate-givback`, async (req, res) => {
   try {
     console.log('start calculating')
-    const {download, endDate, startDate} = req.query;
+    const {download, endDate, startDate,
+      distributorAddress,nrGIVAddress, tokenDistroAddress} = req.query;
     const givPrice = Number(req.query.givPrice)
     const givAvailable = Number(req.query.givAvailable)
     const givWorth = givAvailable * givPrice
@@ -70,7 +71,12 @@ app.get(`/calculate-givback`, async (req, res) => {
       traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
       givFactor: Number(givFactor.toFixed(4)),
-      smartContractCallParams: createSmartContractCallParams(donationsWithShare.filter(givback => givback.givback > 0)),
+      purpleListNumber: purpleList.length,
+      smartContractCallParams: createSmartContractCallParams(
+        {
+          distributorAddress, nrGIVAddress, tokenDistroAddress,
+          donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0)
+        }),
       givbacks: donationsWithShare,
     };
     if (download === 'yes') {

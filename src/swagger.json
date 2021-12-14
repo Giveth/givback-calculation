@@ -36,6 +36,24 @@
             "in": "query"
           },
           {
+            "name": "nrGIVAddress",
+            "type": "string",
+            "default": "0xba4858a7cDCA54698A28947F2dF874990bB724f1",
+            "in": "query"
+          },
+          {
+            "name": "tokenDistroAddress",
+            "type": "string",
+            "default": "0xb85431ead6471b6fb83afe797b03578c84b24af6",
+            "in": "query"
+          },
+          {
+            "name": "distributorAddress",
+            "type": "string",
+            "default": "0xf11aC05c97F8845f6b974e9e327129d36683cC90",
+            "in": "query"
+          },
+          {
             "name": "download",
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",

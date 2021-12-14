@@ -6,18 +6,22 @@
  }]
  * @returns {string}
  */
-const createSmartContractCallParams = (givbacks) => {
-  let result = 'sendGIVbacks(address[],uint256[]) ['
-  for (let i = 0; i < givbacks.length; i++) {
+const createSmartContractCallParams = ({
+                                         distributorAddress, nrGIVAddress,
+                                         tokenDistroAddress,
+                                         donationsWithShare
+                                       }) => {
+  let result = `connect ${nrGIVAddress} token-manager voting act ${tokenDistroAddress} ${distributorAddress} `;
+  result += 'sendGIVbacks(address[] ,uint256[]) ['
+  for (let i = 0; i < donationsWithShare.length; i++) {
     if (i > 0) {
       // We should not put comma before first wallet address, so we do tihs checking
       result += ','
     }
-    result += givbacks[i].giverAddress
+    result += donationsWithShare[i].giverAddress
   }
   result += ']['
-  // result+=`${givbacks.map(givback=>givback.givback)}`
-  result += `${givbacks.map(givback => convertExponentialNumber(givback.givback * 10 ** 18))}`
+  result += `${donationsWithShare.map(givback => convertExponentialNumber(givback.givback * 10 ** 18))}`
   result += ']'
   return result
 }
