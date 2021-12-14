@@ -66,7 +66,7 @@ app.get(`/calculate-givback`, async (req, res) => {
       return item.share > 0
     })
     const response = {
-      raisedValueSum: Math.ceil(raisedValueSum),
+      raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
       givDistributed: Math.ceil(givDistributed),
       traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
