@@ -15,8 +15,9 @@ Node 10 or higher
 1. `git clone https://github.com/Giveth/givback-calculation.git`
 2. `cd givback-calculation`
 3. `npm i`
-4. `GIVETHIO_BASE_URL=https://mainnet.serve.giveth.io TRACE_BASE_URL=https://feathers.beta.giveth.io npm start`
-5. Browse http://localhost:3000/api-docs
+4. `cp .env.example .env`
+5. `npm start`
+6. Browse http://localhost:3000/api-docs
 
 
 ## Deploy

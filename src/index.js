@@ -1,3 +1,9 @@
+const dotenv = require('dotenv')
+if (process.env.NODE_ENV !== 'develop') {
+  // In develop env we use .env in docker-compose so we dont need dotenv package
+  dotenv.config()
+}
+
 const {getDonationsReport: givethTraceDonations} = require('./givethTraceService')
 const {getDonationsReport: givethIoDonations} = require('./givethIoService')
 const express = require('express');
@@ -5,6 +11,8 @@ const _ = require('underscore');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 const {createSmartContractCallParams} = require("./utils");
+
+const purpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split(',').map(address => address.toLowerCase()) : []
 
 const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -26,13 +34,15 @@ app.get(`/calculate-givback`, async (req, res) => {
       return previousValue + currentValue.totalAmount
     }, 0);
     const groupByGiverAddress = _.groupBy(traceDonations.concat(givethDonations), 'giverAddress')
-    const result = _.map(groupByGiverAddress, function (value, key) {
+    const result = _.map(groupByGiverAddress, (value, key) => {
       return {
         giverAddress: key.toLowerCase(),
-        totalAmount: _.reduce(value, function (total, o) {
+        totalAmount: _.reduce(value, (total, o) => {
           return total + o.totalAmount;
         }, 0)
       };
+    }).filter(item => {
+      return !purpleList.includes(item.giverAddress)
     }).sort((a, b) => {
       return b.totalAmount - a.totalAmount
     });
@@ -41,13 +51,13 @@ app.get(`/calculate-givback`, async (req, res) => {
       raisedValueSum += donation.totalAmount;
     }
     const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
-    const givDistributed = givFactor * (raisedValueSum/givPrice);
+    const givDistributed = givFactor * (raisedValueSum / givPrice);
     const donationsWithShare = result.map(item => {
       const share = item.totalAmount / raisedValueSum;
-      const givback = (item.totalAmount/givPrice) * givFactor;
+      const givback = (item.totalAmount / givPrice) * givFactor;
       return {
         giverAddress: item.giverAddress,
-        totalAmount: Number((item.totalAmount/givPrice).toFixed(2)),
+        totalAmount: Number((item.totalAmount / givPrice).toFixed(2)),
         givback: Number(givback.toFixed(2)),
         share: Number(share.toFixed(8)),
       }
@@ -60,7 +70,7 @@ app.get(`/calculate-givback`, async (req, res) => {
       traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
       givFactor: Number(givFactor.toFixed(4)),
-      smartContractCallParams: createSmartContractCallParams(donationsWithShare.filter(givback=> givback.givback >0)),
+      smartContractCallParams: createSmartContractCallParams(donationsWithShare.filter(givback => givback.givback > 0)),
       givbacks: donationsWithShare,
     };
     if (download === 'yes') {
@@ -84,7 +94,7 @@ app.get(`/donations-leaderboard`, async (req, res) => {
   try {
     console.log('start calculating')
     const {total, endDate, startDate} = req.query;
-    const numberOfLeaderBoard = Number(total) ||10
+    const numberOfLeaderBoard = Number(total) || 10
     const traceDonations = await givethTraceDonations(startDate, endDate);
     const givethDonations = await givethIoDonations(startDate, endDate);
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
@@ -107,10 +117,10 @@ app.get(`/donations-leaderboard`, async (req, res) => {
     const response = {
       traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
-      totalDonationsAmount : Math.ceil(givethioDonationsAmount)+Math.ceil(traceDonationsAmount),
-      traceLeaderboard :traceDonations.slice(0,numberOfLeaderBoard) ,
-      givethIoLeaderboard:givethDonations.slice(0,numberOfLeaderBoard) ,
-      totalLeaderboard: result.slice(0,numberOfLeaderBoard)
+      totalDonationsAmount: Math.ceil(givethioDonationsAmount) + Math.ceil(traceDonationsAmount),
+      traceLeaderboard: traceDonations.slice(0, numberOfLeaderBoard),
+      givethIoLeaderboard: givethDonations.slice(0, numberOfLeaderBoard),
+      totalLeaderboard: result.slice(0, numberOfLeaderBoard)
     };
 
     res.send(response)

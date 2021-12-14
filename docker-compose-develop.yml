@@ -10,10 +10,10 @@ services:
     # 2. docker-compose -f docker-compose-develop.yml down
     # 3. docker-compose -f docker-compose-develop.yml up -d
     image: ghcr.io/giveth/givback-calculation:latest
+    env_file:
+      - .env
     environment:
       - NODE_ENV=develop
-      - GIVETHIO_BASE_URL=https://mainnet.serve.giveth.io
-      - TRACE_BASE_URL=https://feathers.beta.giveth.io
 
     ports:
       - "3051:3000"
