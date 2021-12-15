@@ -65,6 +65,20 @@ const getDonationsReport = async (beforeDate, endDate) => {
   }
 }
 
+// List of peoples who should not give givbacks
+const getPurpleList =async () =>{
+  const query = gql`
+        {
+          getProjectsRecipients 
+        }
+    `;
+
+  const result = await request(`${givethiobaseurl}/graphql`, query)
+  return result.getProjectsRecipients
+}
+
+
 module.exports = {
-  getDonationsReport
+  getDonationsReport,
+  getPurpleList
 }

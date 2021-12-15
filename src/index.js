@@ -5,14 +5,12 @@ if (process.env.NODE_ENV !== 'develop') {
 }
 
 const {getDonationsReport: givethTraceDonations} = require('./givethTraceService')
-const {getDonationsReport: givethIoDonations} = require('./givethIoService')
+const {getDonationsReport: givethIoDonations, getPurpleList } = require('./givethIoService')
 const express = require('express');
 const _ = require('underscore');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 const {createSmartContractCallParams} = require("./utils");
-
-const purpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split(',').map(address => address.toLowerCase()) : []
 
 const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -28,6 +26,7 @@ app.get(`/calculate-givback`, async (req, res) => {
     const givMaxFactor = Number(req.query.givMaxFactor)
     const traceDonations = await givethTraceDonations(startDate, endDate);
     const givethDonations = await givethIoDonations(startDate, endDate);
+    const purpleList = ( await getPurpleList() ).map(address => address.toLowerCase())
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
       return previousValue + currentValue.totalAmount
     }, 0);
@@ -71,13 +70,13 @@ app.get(`/calculate-givback`, async (req, res) => {
       traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
       givFactor: Number(givFactor.toFixed(4)),
-      purpleListNumber: purpleList.length,
       smartContractCallParams: createSmartContractCallParams(
         {
           distributorAddress, nrGIVAddress, tokenDistroAddress,
           donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0)
         }),
       givbacks: donationsWithShare,
+      purpleList,
     };
     if (download === 'yes') {
       const data = JSON.stringify(response, null, 4);
