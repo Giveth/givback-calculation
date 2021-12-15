@@ -12,6 +12,10 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 const {createSmartContractCallParams} = require("./utils");
 
+
+const configPurpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split(',').map(address => address.toLowerCase()) : []
+
+
 const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
@@ -26,7 +30,7 @@ app.get(`/calculate-givback`, async (req, res) => {
     const givMaxFactor = Number(req.query.givMaxFactor)
     const traceDonations = await givethTraceDonations(startDate, endDate);
     const givethDonations = await givethIoDonations(startDate, endDate);
-    const purpleList = ( await getPurpleList() ).map(address => address.toLowerCase())
+    const purpleList = ( await getPurpleList() ).map(address => address.toLowerCase()).concat(configPurpleList)
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
       return previousValue + currentValue.totalAmount
     }, 0);
