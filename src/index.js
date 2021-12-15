@@ -31,6 +31,7 @@ app.get(`/calculate-givback`, async (req, res) => {
     const traceDonations = await givethTraceDonations(startDate, endDate);
     const givethDonations = await givethIoDonations(startDate, endDate);
     const purpleList = ( await getPurpleList() ).map(address => address.toLowerCase()).concat(configPurpleList)
+    const uniquePurpleList =  [...new Set(purpleList)];
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
       return previousValue + currentValue.totalAmount
     }, 0);
@@ -46,7 +47,7 @@ app.get(`/calculate-givback`, async (req, res) => {
         }, 0)
       };
     }).filter(item => {
-      return !purpleList.includes(item.giverAddress)
+      return !uniquePurpleList.includes(item.giverAddress)
     }).sort((a, b) => {
       return b.totalAmount - a.totalAmount
     });
@@ -80,7 +81,7 @@ app.get(`/calculate-givback`, async (req, res) => {
           donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0)
         }),
       givbacks: donationsWithShare,
-      purpleList,
+      purpleList: uniquePurpleList,
     };
     if (download === 'yes') {
       const data = JSON.stringify(response, null, 4);
