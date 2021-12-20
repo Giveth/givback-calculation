@@ -11,8 +11,8 @@ const createSmartContractCallParams = ({
                                          tokenDistroAddress,
                                          donationsWithShare
                                        }) => {
-  let result = `connect ${nrGIVAddress} token-manager voting act ${tokenDistroAddress} ${distributorAddress} `;
-  result += 'sendGIVbacks(address[] ,uint256[]) ['
+  let result = `connect ${nrGIVAddress} token-manager voting act ${distributorAddress} ${tokenDistroAddress} `;
+  result += 'sendGIVbacks(address[],uint256[]) ['
   for (let i = 0; i < donationsWithShare.length; i++) {
     if (i > 0) {
       // We should not put comma before first wallet address, so we do tihs checking
@@ -20,7 +20,7 @@ const createSmartContractCallParams = ({
     }
     result += donationsWithShare[i].giverAddress
   }
-  result += ']['
+  result += '] ['
   result += `${donationsWithShare.map(givback => convertExponentialNumber(givback.givback * 10 ** 18))}`
   result += ']'
   return result
