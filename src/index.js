@@ -9,6 +9,8 @@ const {getDonationsReport: givethIoDonations, getPurpleList } = require('./givet
 const express = require('express');
 const _ = require('underscore');
 const swaggerUi = require('swagger-ui-express');
+const { parse } = require('json2csv');
+
 const swaggerDocument = require('./swagger.json');
 const {createSmartContractCallParams} = require("./utils");
 
@@ -69,26 +71,27 @@ app.get(`/calculate-givback`, async (req, res) => {
     }).filter(item => {
       return item.share > 0
     })
+    const smartContractCallParams = createSmartContractCallParams(
+      {
+        distributorAddress, nrGIVAddress, tokenDistroAddress,
+        donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0)
+      });
     const response = {
       raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
       givDistributed: Math.ceil(givDistributed),
       traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
       givFactor: Number(givFactor.toFixed(4)),
-      smartContractCallParams: createSmartContractCallParams(
-        {
-          distributorAddress, nrGIVAddress, tokenDistroAddress,
-          donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0)
-        }),
+      smartContractCallParams,
       givbacks: donationsWithShare,
       purpleList: uniquePurpleList,
     };
     if (download === 'yes') {
-      const data = JSON.stringify(response, null, 4);
-      const fileName = `givbackreport_${startDate}-${endDate}.json`;
+      const csv = parse(response.givbacks.map(item =>{ return {givDistributed,givFactor,...item}}));
+      const fileName = `givbackreport_${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
-      res.send(data)
+      res.send(csv)
     } else {
       res.send(response)
     }

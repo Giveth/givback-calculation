@@ -16,6 +16,7 @@
     "express": "^4.17.1",
     "graphql": "^15.6.0",
     "graphql-request": "^3.5.0",
+    "json2csv": "^5.0.6",
     "moment": "^2.29.1",
     "swagger-ui-express": "^4.1.6",
     "underscore": "^1.13.1"
