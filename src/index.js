@@ -4,12 +4,20 @@ if (process.env.NODE_ENV !== 'develop') {
   dotenv.config()
 }
 
-const {getDonationsReport: givethTraceDonations} = require('./givethTraceService')
-const {getDonationsReport: givethIoDonations, getPurpleList } = require('./givethIoService')
+const {
+  getDonationsReport: givethTraceDonations,
+  getEligibleDonations: givethTraceEligibleDonations
+} = require('./givethTraceService')
+
+const {
+  getDonationsReport: givethIoDonations,
+  getEligibleDonations: givethIoEligibleDonations, getPurpleList
+} = require('./givethIoService')
+
 const express = require('express');
 const _ = require('underscore');
 const swaggerUi = require('swagger-ui-express');
-const { parse } = require('json2csv');
+const {parse} = require('json2csv');
 
 const swaggerDocument = require('./swagger.json');
 const {createSmartContractCallParams} = require("./utils");
@@ -24,16 +32,19 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.get(`/calculate-givback`, async (req, res) => {
   try {
     console.log('start calculating')
-    const {download, endDate, startDate,
-      distributorAddress,nrGIVAddress, tokenDistroAddress} = req.query;
+    const {
+      download, endDate, startDate,
+      distributorAddress, nrGIVAddress, tokenDistroAddress
+    } = req.query;
     const givPrice = Number(req.query.givPrice)
     const givAvailable = Number(req.query.givAvailable)
     const givWorth = givAvailable * givPrice
     const givMaxFactor = Number(req.query.givMaxFactor)
-    const traceDonations = await givethTraceDonations(startDate, endDate);
-    const givethDonations = await givethIoDonations(startDate, endDate);
-    const purpleList = ( await getPurpleList() ).map(address => address.toLowerCase()).concat(configPurpleList)
-    const uniquePurpleList =  [...new Set(purpleList)];
+    const [traceDonations, givethDonations] = await Promise.all([ givethTraceDonations(startDate, endDate),
+      givethIoDonations(startDate, endDate)
+    ]);
+    const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
+    const uniquePurpleList = [...new Set(purpleList)];
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
       return previousValue + currentValue.totalAmount
     }, 0);
@@ -87,13 +98,45 @@ app.get(`/calculate-givback`, async (req, res) => {
       purpleList: uniquePurpleList,
     };
     if (download === 'yes') {
-      const csv = parse(response.givbacks.map(item =>{ return {givDistributed,givFactor,...item}}));
+      const csv = parse(response.givbacks.map(item => {
+        return {givDistributed, givFactor, ...item}
+      }));
       const fileName = `givbackreport_${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
       res.send(csv)
     } else {
       res.send(response)
+    }
+  } catch (e) {
+    console.log("error happened", e)
+    res.status(400).send({
+      message: e.message
+    })
+  }
+})
+
+
+app.get(`/eligible-donations`, async (req, res) => {
+  try {
+    const {endDate, startDate, download} = req.query;
+    const [traceDonations, givethIoDonations] = await Promise.all([
+      givethTraceEligibleDonations(startDate, endDate),
+      givethIoEligibleDonations(startDate, endDate)]
+    );
+    const donations =
+      traceDonations.concat(givethIoDonations).sort((a, b) => {
+        return b.createdAt >= a.createdAt ? 1 : -1
+      })
+
+    if (download === 'yes') {
+      const csv = parse(donations);
+      const fileName = `eligible-donations${startDate}-${endDate}.csv`;
+      res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+      res.setHeader('Content-type', 'application/json');
+      res.send(csv)
+    } else {
+      res.send(donations)
     }
   } catch (e) {
     console.log("error happened", e)

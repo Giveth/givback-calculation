@@ -70,6 +70,38 @@
         }
       }
     },
+    "/eligible-donations": {
+      "get": {
+        "parameters": [
+          {
+            "name": "startDate",
+            "type": "string",
+            "default": "2021/09/01-00:00:00",
+            "in": "query"
+          },
+          {
+            "name": "endDate",
+            "type": "string",
+            "default": "2021/12/31-00:00:00",
+            "in": "query"
+          },
+          {
+            "name": "download",
+            "type": "string",
+            "description": "If you want to see json here set no, but if you want to download a file set yes",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
+    },
     "/donations-leaderboard": {
       "get": {
         "parameters": [
