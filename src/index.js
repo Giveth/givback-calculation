@@ -99,7 +99,13 @@ app.get(`/calculate-givback`, async (req, res) => {
     };
     if (download === 'yes') {
       const csv = parse(response.givbacks.map(item => {
-        return {givDistributed, givFactor, ...item}
+        return {
+          givDistributed,
+          givFactor,
+          givPrice,
+          givbackUsdValue: givPrice * item.givback,
+          ...item
+        }
       }));
       const fileName = `givbackreport_${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
