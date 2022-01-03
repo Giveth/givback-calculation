@@ -5,8 +5,18 @@ const givEconomySubgraphUrl  = 'https://api.thegraph.com/subgraphs/name/giveth/g
 const xdaiWeb3 = new Web3('https://dry-small-sound.xdai.quiknode.pro');
 
 const getEthGivPrice = async (blockNumber) =>{
-    const query = `{
+    const query = blockNumber ?  `{
         prices(block: {number : ${blockNumber}}) {
+            id
+            from
+            to
+            value
+            source
+            blockTimeStamp
+        }
+      }
+    ` : `{
+        prices {
             id
             from
             to

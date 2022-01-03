@@ -198,12 +198,12 @@ app.get(`/donations-leaderboard`, async (req, res) => {
 app.get('/givPrice', async(req, res)=>{
   try {
     let {blockNumber, txHash} = req.query;
-    if ((blockNumber && txHash) || (!blockNumber && !txHash)) {
-      throw new Error('You should fill one of txHash, blockNumber')
+    if (blockNumber && txHash) {
+      throw new Error('You should fill just one of txHash, blockNumber')
     }
     blockNumber = txHash ? await getBlockNumberOfTxHash(txHash) : Number(blockNumber)
     const givPriceInEth = await getEthGivPrice(blockNumber);
-    const timestamp = await getTimestampOfBlock(blockNumber)
+    const timestamp = blockNumber ? await getTimestampOfBlock(blockNumber) : new Date().getTime()
     const ethPriceInUsd = await getEthPriceTimeStamp(timestamp);
     const givPriceInUsd = givPriceInEth * ethPriceInUsd
 
@@ -220,20 +220,8 @@ app.get('/givPrice', async(req, res)=>{
   } catch (e) {
     res.send({errorMessage: e.message})
   }
-
 })
 
-// getEthGivPrice(19800239).then(res =>{
-//   console.log("result...", res)
-// }).catch(e =>{
-//   console.log('price error ... ', e)
-// })
-//
-// getEthPriceTimeStamp((new Date().getTime()/1000).toFixed(0)).then(res =>{
-//   console.log("result...", res)
-// }).catch(e =>{
-//   console.log('price error ... ', e)
-// })
 
 app.listen(3000, () => {
   console.log('listening to port 3000')
