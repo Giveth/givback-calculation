@@ -1,7 +1,7 @@
 const axios = require('axios')
 const Web3 =require('web3');
 
-const givEconomySubgraphUrl  = process.env.GIV_ECONOMY_SUBGRAPH_URL
+const givEconomySubgraphUrl  = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-xdai'
 const xdaiWeb3 = new Web3('https://dry-small-sound.xdai.quiknode.pro');
 
 const getEthGivPrice = async (blockNumber) =>{
