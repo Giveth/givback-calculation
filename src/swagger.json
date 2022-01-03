@@ -131,6 +131,28 @@
 
         }
       }
+    },
+    "/givPrice": {
+      "get": {
+        "description":"Giv price on xdai network ( GIV/ETH comes from sushiswap pool, ETH/USD comes from crypto compare API)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "txHash",
+            "description": "txHash on xDai"
+          },
+          {
+            "in": "query",
+            "name": "blockNumber",
+            "description": "blockNumber on xdai"
+          }
+        ],
+        "responses": {
+          "200": {
+
+          }
+        }
+      }
     }
 
   }
