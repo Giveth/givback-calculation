@@ -218,7 +218,7 @@ app.get('/givPrice', async(req, res)=>{
       givPriceInUsd
     })
   } catch (e) {
-    res.send({errorMessage: e.message})
+    res.json(400).send({errorMessage: e.message})
   }
 })
 
