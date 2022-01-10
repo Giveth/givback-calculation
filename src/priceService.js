@@ -28,7 +28,7 @@ const getEthGivPrice = async (blockNumber) =>{
         resultData: result.data,
         requestBody
     } )
-    const pair = result?.data?.data?.pairs[0]
+    const pair = result.data && result.data.data && result.data.data.pairs && result.data.data.pairs[0]
     if (!pair){
         throw new Error('There is no ETH/GIV price in this block')
     }
