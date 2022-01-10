@@ -6,23 +6,19 @@ const xdaiWeb3 = new Web3('https://dry-small-sound.xdai.quiknode.pro');
 
 const getEthGivPrice = async (blockNumber) =>{
     const query = blockNumber ?  `{
-        prices(block: {number : ${blockNumber}}) {
-            id
-            from
-            to
-            value
-            source
-            blockTimeStamp
+        pairs(block: {number : ${blockNumber}}) {
+            reserve0
+            reserve1
+            token0
+            token1
         }
       }
     ` : `{
-        prices {
-            id
-            from
-            to
-            value
-            source
-            blockTimeStamp
+        pairs {
+            reserve0
+            reserve1
+            token0
+            token1
         }
       }
     `;
@@ -32,11 +28,11 @@ const getEthGivPrice = async (blockNumber) =>{
         resultData: result.data,
         requestBody
     } )
-    const price = result.data.data.prices.find(({from, to}) =>from==='ETH' && to==='GIV')
-    if (!price){
-        throw new Error('There is ETH/GIV price in this block')
+    const pair = result?.data?.data?.pairs[0]
+    if (!pair){
+        throw new Error('There is no ETH/GIV price in this block')
     }
-    return 1/Number(price.value)
+    return  pair.reserve1/pair.reserve0
 }
 
 
