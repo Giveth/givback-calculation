@@ -56,6 +56,8 @@ app.get(`/calculate-givback`, async (req, res) => {
     const result = _.map(groupByGiverAddress, (value, key) => {
       return {
         giverAddress: key.toLowerCase(),
+        giverEmail : value[0].giverEmail,
+        giverName : value[0].giverName,
         totalAmount: _.reduce(value, (total, o) => {
           return total + o.totalAmount;
         }, 0)
@@ -76,6 +78,8 @@ app.get(`/calculate-givback`, async (req, res) => {
       const givback = (item.totalAmount / givPrice) * givFactor;
       return {
         giverAddress: item.giverAddress,
+        giverEmail: item.giverEmail,
+        giverName: item.giverName,
         totalAmount: Number(item.totalAmount ).toFixed(2),
         givback: Number(givback.toFixed(2)),
         givbackUsdValue:  (givback * givPrice).toFixed(2),

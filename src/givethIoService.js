@@ -37,6 +37,10 @@ const getEligibleDonations = async (beginDate, endDate) => {
               giveBacks
               verified
             }
+            user {
+              name
+              email
+            }
             fromWalletAddress
             status
           }
@@ -62,7 +66,9 @@ const getEligibleDonations = async (beginDate, endDate) => {
         giverAddress: item.fromWalletAddress,
         txHash: item.transactionId,
         network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
-        source: 'giveth.io'
+        source: 'giveth.io',
+        giverName: item && item.user && item.user.name,
+        giverEmail: item && item.user && item.user.email
       }
     });
 
@@ -89,6 +95,8 @@ const getDonationsReport = async (beginDate, endDate) => {
     const groups = _.groupBy(donations, 'giverAddress')
     return _.map(groups, function (value, key) {
       return {
+        giverName: value[0].giverName,
+        giverEmail: value[0].giverEmail,
         giverAddress: key.toLowerCase(),
         totalAmount: _.reduce(value, function (total, o) {
           return total + o.valueUsd;
