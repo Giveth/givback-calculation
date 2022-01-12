@@ -1,7 +1,7 @@
 const axios = require('axios')
 const Web3 = require('web3');
 const {Pool} = require("@uniswap/v3-sdk");
-
+const { Token } = require('@uniswap/sdk-core');
 const givEconomyXdaiSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-xdai'
 const givEconomyMainnetSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-mainnet'
 const xdaiWeb3 = new Web3('https://dry-small-sound.xdai.quiknode.pro');
@@ -69,15 +69,35 @@ const getEthGivPriceInMainnet = async (blockNumber) => {
   if (!uniswapV3Pool) {
     throw new Error('There is no ETH/GIV price in this block')
   }
+  const givTokenAddress = "0x900db999074d9277c5da2a43f252d74366230da0";
+  const wethTokenAddress = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
+
+  const givToken = new Token(
+    1,
+    givTokenAddress,
+    18,
+    'GIV',
+    'GIV',
+  );
+  const wethToken = new Token(
+    1,
+    wethTokenAddress,
+    18,
+    'WETH',
+    'WETH',
+  );
+  const givIsFirstToken = uniswapV3Pool.token0.toLowerCase() === givTokenAddress.toLowerCase()
+  const firstToken = givIsFirstToken ? givToken : wethToken
+  const secondToken = givIsFirstToken ? wethToken : givToken
   const pool = new Pool(
-    uniswapV3Pool.token0,
-    uniswapV3Pool.token1,
+    firstToken,
+    secondToken,
     3000,
-    uniswapV3Pool.sqrtPriceX96,
-    uniswapV3Pool.liquidity,
+    Number(uniswapV3Pool.sqrtPriceX96),
+    Number(uniswapV3Pool.liquidity),
     Number(uniswapV3Pool.tick),
   );
-  return pool.token1Price
+  return pool.priceOf(givToken).toFixed(10)
 }
 
 

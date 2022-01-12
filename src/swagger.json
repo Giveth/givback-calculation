@@ -145,6 +145,7 @@
           {
             "in": "query",
             "name": "network",
+            "default": "xdai",
             "enum": [
               "xdai",
               "mainnet"
