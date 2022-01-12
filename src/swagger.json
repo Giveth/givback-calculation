@@ -134,8 +134,16 @@
     },
     "/givPrice": {
       "get": {
-        "description":"Giv price on xdai network ( GIV/ETH comes from sushiswap pool, ETH/USD comes from crypto compare API)",
+        "description":"Giv price on xdai and mainnet network ( GIV/ETH comes from sushiswap/uniswap pool, ETH/USD comes from crypto compare API)",
         "parameters": [
+          {
+            "in": "query",
+            "name": "network",
+            "enum": [
+              "xdai",
+              "mainnet"
+            ]
+          },
           {
             "in": "query",
             "name": "txHash",

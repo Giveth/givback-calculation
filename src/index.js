@@ -21,7 +21,9 @@ const {parse} = require('json2csv');
 
 const swaggerDocument = require('./swagger.json');
 const {createSmartContractCallParams} = require("./utils");
-const {getEthGivPrice, getEthPriceTimeStamp, getBlockNumberOfTxHash, getTimestampOfBlock} = require("./priceService");
+const {getBlockNumberOfTxHash, getTimestampOfBlock, getEthGivPriceInMainnet,
+  getEthGivPriceInXdai, getEthPriceTimeStamp
+} = require("./priceService");
 
 
 const configPurpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split(',').map(address => address.toLowerCase()) : []
@@ -202,13 +204,13 @@ app.get(`/donations-leaderboard`, async (req, res) => {
 
 app.get('/givPrice', async(req, res)=>{
   try {
-    let {blockNumber, txHash} = req.query;
+    let {blockNumber, txHash, network = 'xdai'} = req.query;
     if (blockNumber && txHash) {
       throw new Error('You should fill just one of txHash, blockNumber')
     }
-    blockNumber = txHash ? await getBlockNumberOfTxHash(txHash) : Number(blockNumber)
-    const givPriceInEth = await getEthGivPrice(blockNumber);
-    const timestamp = blockNumber ? await getTimestampOfBlock(blockNumber) : new Date().getTime()
+    blockNumber = txHash ? await getBlockNumberOfTxHash(txHash, network) : Number(blockNumber)
+    const givPriceInEth =  network ==='mainnet' ? await getEthGivPriceInMainnet(blockNumber) :await getEthGivPriceInXdai(blockNumber);
+    const timestamp = blockNumber ? await getTimestampOfBlock(blockNumber,network) : new Date().getTime()
     const ethPriceInUsd = await getEthPriceTimeStamp(timestamp);
     const givPriceInUsd = givPriceInEth * ethPriceInUsd
 
