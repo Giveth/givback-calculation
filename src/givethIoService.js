@@ -34,7 +34,7 @@ const getEligibleDonations = async (beginDate, endDate) => {
             transactionNetworkId
             amount
             project {
-              giveBacks
+              slug
               verified
             }
             user {
@@ -68,7 +68,8 @@ const getEligibleDonations = async (beginDate, endDate) => {
         network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
-        giverEmail: item && item.user && item.user.email
+        giverEmail: item && item.user && item.user.email,
+        projectLink: `https://giveth.io/project/${item.project.slug}`,
       }
     });
 
