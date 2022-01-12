@@ -7,10 +7,30 @@
  * @returns {string}
  */
 const createSmartContractCallParams = ({
-                                         distributorAddress, nrGIVAddress,
+                                         distributorAddress,
+                                         nrGIVAddress,
                                          tokenDistroAddress,
                                          donationsWithShare
-                                       }) => {
+                                       }, maxAddressesPerFunctionCall) => {
+  const response = {}
+  const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
+  for (let i = 0; i < partNumbers; i++) {
+    response[`smartContractCallParams-${i+1}`] = getSmartContractParamsPart({
+      distributorAddress,
+      nrGIVAddress,
+      tokenDistroAddress,
+      donationsWithShare: donationsWithShare.slice(i*maxAddressesPerFunctionCall, (i+1)*maxAddressesPerFunctionCall)
+    })
+  }
+  return response;
+}
+
+const getSmartContractParamsPart = ({
+                                      distributorAddress,
+                                      nrGIVAddress,
+                                      tokenDistroAddress,
+                                      donationsWithShare
+                                    }) => {
   let result = `connect ${nrGIVAddress} token-manager voting act ${distributorAddress} ${tokenDistroAddress} `;
   result += 'sendGIVbacks(address[],uint256[]) ['
   for (let i = 0; i < donationsWithShare.length; i++) {
@@ -25,6 +45,7 @@ const createSmartContractCallParams = ({
   result += ']'
   return result
 }
+
 
 const convertExponentialNumber = (n) => {
   const sign = +n < 0 ? "-" : "",
