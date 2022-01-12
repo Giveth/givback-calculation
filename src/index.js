@@ -35,7 +35,8 @@ app.get(`/calculate-givback`, async (req, res) => {
     console.log('start calculating')
     const {
       download, endDate, startDate,
-      distributorAddress, nrGIVAddress, tokenDistroAddress
+      distributorAddress, nrGIVAddress, tokenDistroAddress,
+      maxAddressesPerFunctionCall
     } = req.query;
     const givPrice = Number(req.query.givPrice)
     const givAvailable = Number(req.query.givAvailable)
@@ -92,14 +93,16 @@ app.get(`/calculate-givback`, async (req, res) => {
       {
         distributorAddress, nrGIVAddress, tokenDistroAddress,
         donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0)
-      });
+      },
+      Number(maxAddressesPerFunctionCall) || 200
+    );
     const response = {
       raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
       givDistributed: Math.ceil(givDistributed),
       traceDonationsAmount: Math.ceil(traceDonationsAmount),
       givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
       givFactor: Number(givFactor.toFixed(4)),
-      smartContractCallParams,
+      ...smartContractCallParams,
       givbacks: donationsWithShare,
       purpleList: uniquePurpleList,
     };

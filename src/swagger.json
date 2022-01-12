@@ -8,13 +8,13 @@
           {
             "name": "startDate",
             "type": "string",
-            "default": "2021/09/01-00:00:00",
+            "default": "2021/12/24-16:00:00",
             "in": "query"
           },
           {
             "name": "endDate",
             "type": "string",
-            "default": "2021/12/31-00:00:00",
+            "default": "2022/01/07-16:00:00",
             "in": "query"
           },
           {
@@ -51,6 +51,12 @@
             "name": "distributorAddress",
             "type": "string",
             "default": "0xb85431ead6471b6fb83afe797b03578c84b24af6",
+            "in": "query"
+          },
+          {
+            "name": "maxAddressesPerFunctionCall",
+            "type": "string",
+            "default": "200",
             "in": "query"
           },
           {
