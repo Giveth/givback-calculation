@@ -21,7 +21,8 @@ const {parse} = require('json2csv');
 
 const swaggerDocument = require('./swagger.json');
 const {createSmartContractCallParams} = require("./utils");
-const {getBlockNumberOfTxHash, getTimestampOfBlock, getEthGivPriceInMainnet,
+const {
+  getBlockNumberOfTxHash, getTimestampOfBlock, getEthGivPriceInMainnet,
   getEthGivPriceInXdai, getEthPriceTimeStamp
 } = require("./priceService");
 
@@ -44,7 +45,7 @@ app.get(`/calculate-givback`, async (req, res) => {
     const givAvailable = Number(req.query.givAvailable)
     const givWorth = givAvailable * givPrice
     const givMaxFactor = Number(req.query.givMaxFactor)
-    const [traceDonations, givethDonations] = await Promise.all([ givethTraceDonations(startDate, endDate),
+    const [traceDonations, givethDonations] = await Promise.all([givethTraceDonations(startDate, endDate),
       givethIoDonations(startDate, endDate)
     ]);
     const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
@@ -59,8 +60,8 @@ app.get(`/calculate-givback`, async (req, res) => {
     const result = _.map(groupByGiverAddress, (value, key) => {
       return {
         giverAddress: key.toLowerCase(),
-        giverEmail : value[0].giverEmail,
-        giverName : value[0].giverName,
+        giverEmail: value[0].giverEmail,
+        giverName: value[0].giverName,
         totalAmount: _.reduce(value, (total, o) => {
           return total + o.totalAmount;
         }, 0)
@@ -83,9 +84,9 @@ app.get(`/calculate-givback`, async (req, res) => {
         giverAddress: item.giverAddress,
         giverEmail: item.giverEmail,
         giverName: item.giverName,
-        totalAmount: Number(item.totalAmount ).toFixed(2),
+        totalAmount: Number(item.totalAmount).toFixed(2),
         givback: Number(givback.toFixed(2)),
-        givbackUsdValue:  (givback * givPrice).toFixed(2),
+        givbackUsdValue: (givback * givPrice).toFixed(2),
         share: Number(share.toFixed(8)),
       }
     }).filter(item => {
@@ -141,8 +142,12 @@ app.get(`/eligible-donations`, async (req, res) => {
       givethTraceEligibleDonations(startDate, endDate),
       givethIoEligibleDonations(startDate, endDate)]
     );
+    const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
+    const uniquePurpleList = [...new Set(purpleList)];
     const donations =
-      traceDonations.concat(givethIoDonations).sort((a, b) => {
+      traceDonations.concat(givethIoDonations).filter(item => {
+        return !uniquePurpleList.includes(item.giverAddress.toLowerCase())
+      }).sort((a, b) => {
         return b.createdAt >= a.createdAt ? 1 : -1
       })
 
@@ -205,15 +210,15 @@ app.get(`/donations-leaderboard`, async (req, res) => {
   }
 })
 
-app.get('/givPrice', async(req, res)=>{
+app.get('/givPrice', async (req, res) => {
   try {
     let {blockNumber, txHash, network = 'xdai'} = req.query;
     if (blockNumber && txHash) {
       throw new Error('You should fill just one of txHash, blockNumber')
     }
     blockNumber = txHash ? await getBlockNumberOfTxHash(txHash, network) : Number(blockNumber)
-    const givPriceInEth =  network ==='mainnet' ? await getEthGivPriceInMainnet(blockNumber) :await getEthGivPriceInXdai(blockNumber);
-    const timestamp = blockNumber ? await getTimestampOfBlock(blockNumber,network) : new Date().getTime()
+    const givPriceInEth = network === 'mainnet' ? await getEthGivPriceInMainnet(blockNumber) : await getEthGivPriceInXdai(blockNumber);
+    const timestamp = blockNumber ? await getTimestampOfBlock(blockNumber, network) : new Date().getTime()
     const ethPriceInUsd = await getEthPriceTimeStamp(timestamp);
     const givPriceInUsd = givPriceInEth * ethPriceInUsd
 
