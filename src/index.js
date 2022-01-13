@@ -238,6 +238,17 @@ app.get('/givPrice', async (req, res) => {
 })
 
 
+app.get('/purpleList', async (req, res) => {
+  try {
+    const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
+    const uniquePurpleList = [...new Set(purpleList)]
+    res.json({purpleList: uniquePurpleList})
+  } catch (e) {
+    res.status(400).send({errorMessage: e.message})
+  }
+})
+
+
 app.listen(3000, () => {
   console.log('listening to port 3000')
 })
