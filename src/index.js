@@ -28,6 +28,8 @@ const {
 
 
 const configPurpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split(',').map(address => address.toLowerCase()) : []
+const whiteListDonations = process.env.WHITELIST_DONATIONS ? process.env.WHITELIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
+const blackListDonations = process.env.BLACKLIST_DONATIONS ? process.env.BLACKLIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 
 
 const app = express();
@@ -57,7 +59,7 @@ app.get(`/calculate-givback`, async (req, res) => {
       return previousValue + currentValue.totalAmount
     }, 0);
     const groupByGiverAddress = _.groupBy(traceDonations.concat(givethDonations), 'giverAddress')
-    const result = _.map(groupByGiverAddress, (value, key) => {
+    const allDonations =  _.map(groupByGiverAddress, (value, key) => {
       return {
         giverAddress: key.toLowerCase(),
         giverEmail: value[0].giverEmail,
@@ -66,9 +68,9 @@ app.get(`/calculate-givback`, async (req, res) => {
           return total + o.totalAmount;
         }, 0)
       };
-    }).filter(item => {
-      return !uniquePurpleList.includes(item.giverAddress)
-    }).sort((a, b) => {
+    });
+    const filteredDonations = await filterDonationsWithPurpleList(allDonations);
+    const result = filteredDonations.sort((a, b) => {
       return b.totalAmount - a.totalAmount
     });
     let raisedValueSum = 0;
@@ -142,12 +144,9 @@ app.get(`/eligible-donations`, async (req, res) => {
       givethTraceEligibleDonations(startDate, endDate),
       givethIoEligibleDonations(startDate, endDate)]
     );
-    const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
-    const uniquePurpleList = [...new Set(purpleList)];
+    const filteredDonations = await filterDonationsWithPurpleList(traceDonations.concat(givethIoDonations));
     const donations =
-      traceDonations.concat(givethIoDonations).filter(item => {
-        return !uniquePurpleList.includes(item.giverAddress.toLowerCase())
-      }).sort((a, b) => {
+      filteredDonations.sort((a, b) => {
         return b.createdAt >= a.createdAt ? 1 : -1
       })
 
@@ -167,6 +166,7 @@ app.get(`/eligible-donations`, async (req, res) => {
     })
   }
 })
+
 
 app.get(`/donations-leaderboard`, async (req, res) => {
   try {
@@ -240,9 +240,8 @@ app.get('/givPrice', async (req, res) => {
 
 app.get('/purpleList', async (req, res) => {
   try {
-    const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
-    const uniquePurpleList = [...new Set(purpleList)]
-    res.json({purpleList: uniquePurpleList})
+
+    res.json({purpleList: await getUniquePurpleList()})
   } catch (e) {
     res.status(400).send({errorMessage: e.message})
   }
@@ -252,3 +251,25 @@ app.get('/purpleList', async (req, res) => {
 app.listen(3000, () => {
   console.log('listening to port 3000')
 })
+
+const getUniquePurpleList = async ()=>{
+  const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
+  return [...new Set(purpleList)]
+}
+
+const filterDonationsWithPurpleList = async (donations) =>{
+  const purpleList = await getUniquePurpleList()
+  return donations.filter(item => {
+      const isGiverPurpleList = purpleList.includes(item.giverAddress.toLowerCase())
+      const isDonationWhitelisted = whiteListDonations.includes(item.txHash.toLowerCase())
+      const isDonationBlacklisted = blackListDonations.includes(item.txHash.toLowerCase())
+      if (isDonationWhitelisted){
+        // It's important to check whitelist before purpleList
+        return true
+      }
+      if (isDonationBlacklisted || isGiverPurpleList){
+        return false;
+      }
+      return true
+    })
+}
