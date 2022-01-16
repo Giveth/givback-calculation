@@ -4,16 +4,6 @@ if (process.env.NODE_ENV !== 'develop') {
   dotenv.config()
 }
 
-const {
-  getDonationsReport: givethTraceDonations,
-  getEligibleDonations: givethTraceEligibleDonations
-} = require('./givethTraceService')
-
-const {
-  getDonationsReport: givethIoDonations,
-  getEligibleDonations: givethIoEligibleDonations, getPurpleList
-} = require('./givethIoService')
-
 const express = require('express');
 const _ = require('underscore');
 const swaggerUi = require('swagger-ui-express');
@@ -27,10 +17,16 @@ const {
 } = require("./priceService");
 
 
-const configPurpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split(',').map(address => address.toLowerCase()) : []
-const whiteListDonations = process.env.WHITELIST_DONATIONS ? process.env.WHITELIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
-const blackListDonations = process.env.BLACKLIST_DONATIONS ? process.env.BLACKLIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
+const {
+  getDonationsReport: givethTraceDonations,
+  getEligibleDonations: givethTraceEligibleDonations
+} = require('./givethTraceService')
 
+const {
+  getDonationsReport: givethIoDonations,
+  getEligibleDonations: givethIoEligibleDonations
+} = require('./givethIoService')
+const {getPurpleList} = require('./commonServices')
 
 const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -50,8 +46,7 @@ app.get(`/calculate-givback`, async (req, res) => {
     const [traceDonations, givethDonations] = await Promise.all([givethTraceDonations(startDate, endDate),
       givethIoDonations(startDate, endDate)
     ]);
-    const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
-    const uniquePurpleList = [...new Set(purpleList)];
+
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
       return previousValue + currentValue.totalAmount
     }, 0);
@@ -69,8 +64,7 @@ app.get(`/calculate-givback`, async (req, res) => {
         }, 0)
       };
     });
-    const filteredDonations = await filterDonationsWithPurpleList(allDonations);
-    const result = filteredDonations.sort((a, b) => {
+    const result = allDonations.sort((a, b) => {
       return b.totalAmount - a.totalAmount
     });
     let raisedValueSum = 0;
@@ -109,7 +103,7 @@ app.get(`/calculate-givback`, async (req, res) => {
       givFactor: Number(givFactor.toFixed(4)),
       ...smartContractCallParams,
       givbacks: donationsWithShare,
-      purpleList: uniquePurpleList,
+      purpleList:  await getPurpleList(),
     };
     if (download === 'yes') {
       const csv = parse(response.givbacks.map(item => {
@@ -144,9 +138,9 @@ app.get(`/eligible-donations`, async (req, res) => {
       givethTraceEligibleDonations(startDate, endDate),
       givethIoEligibleDonations(startDate, endDate)]
     );
-    const filteredDonations = await filterDonationsWithPurpleList(traceDonations.concat(givethIoDonations));
+    const allDonations = traceDonations.concat(givethIoDonations);
     const donations =
-      filteredDonations.sort((a, b) => {
+      allDonations.sort((a, b) => {
         return b.createdAt >= a.createdAt ? 1 : -1
       })
 
@@ -252,24 +246,3 @@ app.listen(3000, () => {
   console.log('listening to port 3000')
 })
 
-const getUniquePurpleList = async ()=>{
-  const purpleList = (await getPurpleList()).map(address => address.toLowerCase()).concat(configPurpleList)
-  return [...new Set(purpleList)]
-}
-
-const filterDonationsWithPurpleList = async (donations) =>{
-  const purpleList = await getUniquePurpleList()
-  return donations.filter(item => {
-      const isGiverPurpleList = purpleList.includes(item.giverAddress.toLowerCase())
-      const isDonationWhitelisted = whiteListDonations.includes(item.txHash.toLowerCase())
-      const isDonationBlacklisted = blackListDonations.includes(item.txHash.toLowerCase())
-      if (isDonationWhitelisted){
-        // It's important to check whitelist before purpleList
-        return true
-      }
-      if (isDonationBlacklisted || isGiverPurpleList){
-        return false;
-      }
-      return true
-    })
-}

@@ -1,6 +1,8 @@
 const axios = require('axios')
 const moment = require("moment");
-const {gql, request} = require("graphql-request");
+const {filterDonationsWithPurpleList} = require('./commonServices')
+const _ = require("underscore");
+
 const traceBaseUrl = process.env.TRACE_BASE_URL
 
 
@@ -39,7 +41,7 @@ const getEligibleDonations = async (beginDate, endDate) => {
         )
       }
     }
-    return donations
+    return filterDonationsWithPurpleList(donations)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {
@@ -57,17 +59,19 @@ const getEligibleDonations = async (beginDate, endDate) => {
  * @returns {Promise<[{totalAmount:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
 const getDonationsReport = async (beforeDate, endDate) => {
-  /**
-   * @see @link{https://feathers.beta.giveth.io/docs/?url=/docs#/verifiedProjectsGiversReport/get_verifiedProjectsGiversReport}
-   */
-  const url = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beforeDate}&toDate=${endDate}&allProjects=true`
-  const result = (await axios.get(url)).data.data
-  return result.map(item => {
+
+  const donations = await getEligibleDonations(beforeDate, endDate)
+  const groups = _.groupBy(donations, 'giverAddress')
+  return _.map(groups, function (value, key) {
     return {
-      totalAmount: item.totalAmount,
-      giverAddress: item.giverAddress.toLowerCase()
-    }
-  })
+      giverName: value[0].giverName,
+      giverEmail: value[0].giverEmail,
+      giverAddress: key.toLowerCase(),
+      totalAmount: _.reduce(value, function (total, o) {
+        return total + o.valueUsd;
+      }, 0)
+    };
+  });
 
 }
 
