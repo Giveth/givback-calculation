@@ -48,10 +48,10 @@ app.get(`/calculate-givback`, async (req, res) => {
     ]);
 
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
-      return previousValue + currentValue.totalAmount
+      return previousValue + currentValue.totalDonationsUsdValue
     }, 0);
     const givethioDonationsAmount = givethDonations.reduce((previousValue, currentValue) => {
-      return previousValue + currentValue.totalAmount
+      return previousValue + currentValue.totalDonationsUsdValue
     }, 0);
     const groupByGiverAddress = _.groupBy(traceDonations.concat(givethDonations), 'giverAddress')
     const allDonations =  _.map(groupByGiverAddress, (value, key) => {
@@ -59,28 +59,28 @@ app.get(`/calculate-givback`, async (req, res) => {
         giverAddress: key.toLowerCase(),
         giverEmail: value[0].giverEmail,
         giverName: value[0].giverName,
-        totalAmount: _.reduce(value, (total, o) => {
-          return total + o.totalAmount;
+        totalDonationsUsdValue: _.reduce(value, (total, o) => {
+          return total + o.totalDonationsUsdValue;
         }, 0)
       };
     });
     const result = allDonations.sort((a, b) => {
-      return b.totalAmount - a.totalAmount
+      return b.totalDonationsUsdValue - a.totalDonationsUsdValue
     });
     let raisedValueSum = 0;
     for (const donation of result) {
-      raisedValueSum += donation.totalAmount;
+      raisedValueSum += donation.totalDonationsUsdValue;
     }
     const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
     const givDistributed = givFactor * (raisedValueSum / givPrice);
     const donationsWithShare = result.map(item => {
-      const share = item.totalAmount / raisedValueSum;
-      const givback = (item.totalAmount / givPrice) * givFactor;
+      const share = item.totalDonationsUsdValue / raisedValueSum;
+      const givback = (item.totalDonationsUsdValue / givPrice) * givFactor;
       return {
         giverAddress: item.giverAddress,
         giverEmail: item.giverEmail,
         giverName: item.giverName,
-        totalAmount: Number(item.totalAmount).toFixed(2),
+        totalDonationsUsdValue: Number(item.totalDonationsUsdValue).toFixed(2),
         givback: Number(givback.toFixed(2)),
         givbackUsdValue: (givback * givPrice).toFixed(2),
         share: Number(share.toFixed(8)),
@@ -170,21 +170,21 @@ app.get(`/donations-leaderboard`, async (req, res) => {
     const traceDonations = await givethTraceDonations(startDate, endDate);
     const givethDonations = await givethIoDonations(startDate, endDate);
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
-      return previousValue + currentValue.totalAmount
+      return previousValue + currentValue.totalDonationsUsdValue
     }, 0);
     const givethioDonationsAmount = givethDonations.reduce((previousValue, currentValue) => {
-      return previousValue + currentValue.totalAmount
+      return previousValue + currentValue.totalDonationsUsdValue
     }, 0);
     const groupByGiverAddress = _.groupBy(traceDonations.concat(givethDonations), 'giverAddress')
     const result = _.map(groupByGiverAddress, function (value, key) {
       return {
         giverAddress: key.toLowerCase(),
-        totalAmount: _.reduce(value, function (total, o) {
-          return total + o.totalAmount;
+        totalDonationsUsdValue: _.reduce(value, function (total, o) {
+          return total + o.totalDonationsUsdValue;
         }, 0)
       };
     }).sort((a, b) => {
-      return b.totalAmount - a.totalAmount
+      return b.totalDonationsUsdValue - a.totalDonationsUsdValue
     });
     const response = {
       traceDonationsAmount: Math.ceil(traceDonationsAmount),

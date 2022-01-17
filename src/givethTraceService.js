@@ -56,7 +56,7 @@ const getEligibleDonations = async (beginDate, endDate) => {
  *
  * @param beforeDate:string, example: 2021/07/01-00:00:00
  * @param endDate:string, example: 2021/07/12-00:00:00
- * @returns {Promise<[{totalAmount:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
+ * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
 const getDonationsReport = async (beforeDate, endDate) => {
 
@@ -67,7 +67,7 @@ const getDonationsReport = async (beforeDate, endDate) => {
       giverName: value[0].giverName,
       giverEmail: value[0].giverEmail,
       giverAddress: key.toLowerCase(),
-      totalAmount: _.reduce(value, function (total, o) {
+      totalDonationsUsdValue: _.reduce(value, function (total, o) {
         return total + o.valueUsd;
       }, 0)
     };
