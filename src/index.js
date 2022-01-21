@@ -235,7 +235,7 @@ app.get('/givPrice', async (req, res) => {
 app.get('/purpleList', async (req, res) => {
   try {
 
-    res.json({purpleList: await getUniquePurpleList()})
+    res.json({purpleList: await getPurpleList()})
   } catch (e) {
     res.status(400).send({errorMessage: e.message})
   }
