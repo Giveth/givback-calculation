@@ -66,6 +66,7 @@ const getDonationsReport = async (beforeDate, endDate) => {
     return {
       giverName: value[0].giverName,
       giverEmail: value[0].giverEmail,
+      givPrice: value[0].givPrice,
       giverAddress: key.toLowerCase(),
       totalDonationsUsdValue: _.reduce(value, function (total, o) {
         return total + o.valueUsd;

@@ -137,10 +137,23 @@ const getWebProvider = (network) => {
   return network === 'mainnet' ? mainnetWeb3 : xdaiWeb3;
 }
 
+const getEthUsdPriceOfGiv =async ({blockNumber, txHash, network}) =>{
+  if (blockNumber && txHash) {
+    throw new Error('You should fill just one of txHash, blockNumber')
+  }
+  blockNumber = txHash ? await getBlockNumberOfTxHash(txHash, network) : Number(blockNumber)
+  const givPriceInEth = network === 'mainnet' ? await getEthGivPriceInMainnet(blockNumber) : await getEthGivPriceInXdai(blockNumber);
+  const timestamp = blockNumber ? await getTimestampOfBlock(blockNumber, network) : new Date().getTime()
+  const ethPriceInUsd = await getEthPriceTimeStamp(timestamp);
+  const givPriceInUsd = givPriceInEth * ethPriceInUsd
+  return {
+    givPriceInEth,
+    ethPriceInUsd,
+    givPriceInUsd
+  }
+}
+
 module.exports = {
-  getEthGivPriceInXdai,
-  getEthGivPriceInMainnet,
-  getEthPriceTimeStamp,
   getBlockNumberOfTxHash,
-  getTimestampOfBlock
+  getEthUsdPriceOfGiv
 }
