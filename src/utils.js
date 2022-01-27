@@ -31,7 +31,7 @@ const getSmartContractParamsPart = ({
                                       tokenDistroAddress,
                                       donationsWithShare
                                     }) => {
-  let result = `connect ${nrGIVAddress} token-manager voting act ${distributorAddress} ${tokenDistroAddress} `;
+  let result = `connect ${nrGIVAddress} token-manager voting:1 act ${distributorAddress} ${tokenDistroAddress} `;
   result += 'sendGIVbacks(address[],uint256[]) ['
   for (let i = 0; i < donationsWithShare.length; i++) {
     if (i > 0) {
