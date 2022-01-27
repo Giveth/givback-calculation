@@ -8,13 +8,13 @@
           {
             "name": "startDate",
             "type": "string",
-            "default": "2021/12/24-16:00:00",
+            "default": "2022/01/14-16:00:00",
             "in": "query"
           },
           {
             "name": "endDate",
             "type": "string",
-            "default": "2022/01/07-16:00:00",
+            "default": "2022/01/21-16:00:00",
             "in": "query"
           },
           {
@@ -38,19 +38,19 @@
           {
             "name": "nrGIVAddress",
             "type": "string",
-            "default": "0xba4858a7cDCA54698A28947F2dF874990bB724f1",
+            "default": "0xA1514067E6fE7919FB239aF5259FfF120902b4f9",
             "in": "query"
           },
           {
             "name": "tokenDistroAddress",
             "type": "string",
-            "default": "0xf11aC05c97F8845f6b974e9e327129d36683cC90",
+            "default": "0x18a46865AAbAf416a970eaA8625CFC430D2364A1",
             "in": "query"
           },
           {
             "name": "distributorAddress",
             "type": "string",
-            "default": "0xb85431ead6471b6fb83afe797b03578c84b24af6",
+            "default": "agent:0",
             "in": "query"
           },
           {
@@ -82,13 +82,13 @@
           {
             "name": "startDate",
             "type": "string",
-            "default": "2021/12/24-16:00:00",
+            "default": "2022/01/14-16:00:00",
             "in": "query"
           },
           {
             "name": "endDate",
             "type": "string",
-            "default": "2022/01/07-16:00:00",
+            "default": "2022/01/21-16:00:00",
             "in": "query"
           },
           {
