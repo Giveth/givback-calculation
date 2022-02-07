@@ -133,10 +133,11 @@ app.get(`/calculate-givback`, async (req, res) => {
 
 app.get(`/eligible-donations`, async (req, res) => {
   try {
-    const {endDate, startDate, download} = req.query;
+    const {endDate, startDate,purpleListStatus, download} = req.query;
+    const eligible = purpleListStatus !== 'justPurpleListDonations'
     const [traceDonations, givethIoDonations] = await Promise.all([
-      givethTraceEligibleDonations(startDate, endDate),
-      givethIoEligibleDonations(startDate, endDate)]
+      givethTraceEligibleDonations(startDate, endDate, eligible),
+      givethIoEligibleDonations(startDate, endDate, eligible)]
     );
     const allDonations = traceDonations.concat(givethIoDonations);
     const donations =
@@ -146,7 +147,7 @@ app.get(`/eligible-donations`, async (req, res) => {
 
     if (download === 'yes') {
       const csv = parse(donations);
-      const fileName = `eligible-donations${startDate}-${endDate}.csv`;
+      const fileName = `${eligible ? 'eligible-donations' : 'purple-list-donations'}-${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
       res.send(csv)

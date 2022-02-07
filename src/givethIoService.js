@@ -2,7 +2,7 @@ const {gql, request} = require('graphql-request');
 const moment = require('moment')
 const _ = require('underscore')
 
-const {filterDonationsWithPurpleList} = require('./commonServices')
+const {filterDonationsWithPurpleList, purpleListDonations} = require('./commonServices')
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
 
@@ -14,7 +14,7 @@ const givethiobaseurl = process.env.GIVETHIO_BASE_URL
  * valueUsd:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" ,
  * source:'giveth.io'}]>}
  */
-const getEligibleDonations = async (beginDate, endDate) => {
+const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
   try {
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
     const firstDate = moment(beginDate, timeFormat);
@@ -75,7 +75,7 @@ const getEligibleDonations = async (beginDate, endDate) => {
         projectLink: `https://giveth.io/project/${item.project.slug}`,
       }
     });
-    return filterDonationsWithPurpleList(finalDonationsWithoutBlackListFilter)
+    return eligible ? filterDonationsWithPurpleList(finalDonationsWithoutBlackListFilter) : purpleListDonations(finalDonationsWithoutBlackListFilter)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {

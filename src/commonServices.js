@@ -38,7 +38,16 @@ const filterDonationsWithPurpleList = async (donations) =>{
 }
 
 
+const purpleListDonations = async (donations) =>{
+  const purpleList = await getPurpleList()
+  return donations.filter(item => {
+    return purpleList.includes(item.giverAddress.toLowerCase())
+  })
+}
+
+
 module.exports = {
   filterDonationsWithPurpleList,
+  purpleListDonations,
   getPurpleList
 }

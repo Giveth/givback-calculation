@@ -1,6 +1,6 @@
 const axios = require('axios')
 const moment = require("moment");
-const {filterDonationsWithPurpleList} = require('./commonServices')
+const {filterDonationsWithPurpleList, purpleListDonations} = require('./commonServices')
 const _ = require("underscore");
 
 const traceBaseUrl = process.env.TRACE_BASE_URL
@@ -14,7 +14,7 @@ const traceBaseUrl = process.env.TRACE_BASE_URL
  * valueUsd:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9",
  * source:'trace.giveth.io', txHash:"", network:"mainnet"}]>}
  */
-const getEligibleDonations = async (beginDate, endDate) => {
+const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
   try {
     /**
      * @see @link{https://feathers.beta.giveth.io/docs/?url=/docs#/verifiedProjectsGiversReport/get_verifiedProjectsGiversReport}
@@ -41,7 +41,7 @@ const getEligibleDonations = async (beginDate, endDate) => {
         )
       }
     }
-    return filterDonationsWithPurpleList(donations)
+    return  eligible ? filterDonationsWithPurpleList(donations): purpleListDonations(donations)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {
