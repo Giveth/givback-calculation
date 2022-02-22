@@ -25,7 +25,9 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
     const unVerifiedDonationsResult = (await axios.get(unVerifiedProjectDonationsUrl)).data.data
     const unVerifiedDonations = formatDonations(unVerifiedDonationsResult);
     const verifiedDonations = formatDonations(verifiedDonationsResult);
-    return  eligible ? await filterDonationsWithPurpleList(verifiedDonations): (await purpleListDonations(verifiedDonations)).concat(unVerifiedDonations)
+    return  eligible ?
+      await filterDonationsWithPurpleList(verifiedDonations):
+      (await purpleListDonations(verifiedDonations)).concat(unVerifiedDonations)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {

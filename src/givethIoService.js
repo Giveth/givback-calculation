@@ -50,7 +50,7 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
     `;
 
     const result = await request(`${givethiobaseurl}/graphql`, query)
-    const donations = result.donations
+    let donationsToVerifiedProjects = result.donations
       .filter(
         donation =>
           moment(donation.createdAt) < secondDate
@@ -60,7 +60,18 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
           && donation.status === 'verified'
       )
 
-    const finalDonationsWithoutBlackListFilter = donations.map(item => {
+    let donationsToNotVerifiedProjects = result.donations
+      .filter(
+        donation =>
+          moment(donation.createdAt) < secondDate
+          && moment(donation.createdAt) > firstDate
+          && donation.valueUsd
+          && !donation.project.verified
+          && donation.status === 'verified'
+      )
+
+
+    const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
       return {
         amount: item.amount,
         currency: item.currency,
@@ -75,7 +86,25 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
         projectLink: `https://giveth.io/project/${item.project.slug}`,
       }
     });
-    return eligible ? filterDonationsWithPurpleList(finalDonationsWithoutBlackListFilter) : purpleListDonations(finalDonationsWithoutBlackListFilter)
+
+    const formattedDonationsToNotVerifiedProjects = donationsToNotVerifiedProjects.map(item => {
+      return {
+        amount: item.amount,
+        currency: item.currency,
+        createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+        valueUsd: item.valueUsd,
+        giverAddress: item.fromWalletAddress,
+        txHash: item.transactionId,
+        network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
+        source: 'giveth.io',
+        giverName: item && item.user && item.user.name,
+        giverEmail: item && item.user && item.user.email,
+        projectLink: `https://giveth.io/project/${item.project.slug}`,
+      }
+    });
+    return eligible ?
+      await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects) :
+      (await purpleListDonations(formattedDonationsToVerifiedProjects)).concat(formattedDonationsToNotVerifiedProjects)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {
