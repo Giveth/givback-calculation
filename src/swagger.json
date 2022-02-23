@@ -78,6 +78,7 @@
     },
     "/eligible-donations": {
       "get": {
+        "description": "Return all donations to verifed projects/campaigns and purpleList addresses are excluded",
         "parameters": [
           {
             "name": "startDate",
@@ -110,6 +111,7 @@
     },
     "/not-eligible-donations": {
       "get": {
+        "description": "Return all donations to unVerified projects/campaigns and donations to verified projects/campains from purple list addresses",
         "parameters": [
           {
             "name": "startDate",
