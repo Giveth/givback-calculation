@@ -17,31 +17,17 @@ const traceBaseUrl = process.env.TRACE_BASE_URL
 const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
   try {
     /**
-     * @see @link{https://feathers.beta.giveth.io/docs/?url=/docs#/verifiedProjectsGiversReport/get_verifiedProjectsGiversReport}
+     * @see @link{https://feathers.giveth.io/docs/?url=/docs#/verifiedProjectsGiversReport/get_verifiedProjectsGiversReport}
      */
-    const url = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beginDate}&toDate=${endDate}&allProjects=true`
-    const result = (await axios.get(url)).data.data
-    const donations = [];
-    for (const giverData of result) {
-      for (const donation of giverData.donations) {
-        donations.push(
-          {
-            amount: donation.amount,
-            currency: donation.token,
-            createdAt: moment(donation.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
-            valueUsd: donation.usdValue,
-            giverAddress: donation.giverAddress,
-            txHash: donation.homeTxHash,
-
-            //We just have donation over mainnet network on trace
-            network:'mainnet',
-
-            source: 'trace.giveth.io'
-          }
-        )
-      }
-    }
-    return  eligible ? filterDonationsWithPurpleList(donations): purpleListDonations(donations)
+    const verifiedProjectDonationsUrl = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beginDate}&toDate=${endDate}&projectType=verified`
+    const unVerifiedProjectDonationsUrl = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beginDate}&toDate=${endDate}&projectType=unVerified`
+    const verifiedDonationsResult = (await axios.get(verifiedProjectDonationsUrl)).data.data
+    const unVerifiedDonationsResult = (await axios.get(unVerifiedProjectDonationsUrl)).data.data
+    const unVerifiedDonations = formatDonations(unVerifiedDonationsResult);
+    const verifiedDonations = formatDonations(verifiedDonationsResult);
+    return  eligible ?
+      await filterDonationsWithPurpleList(verifiedDonations):
+      (await purpleListDonations(verifiedDonations)).concat(unVerifiedDonations)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {
@@ -50,6 +36,32 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
     })
     throw e
   }
+}
+
+function formatDonations (donationResult){
+  const donations = []
+  for (const giverData of donationResult) {
+    for (const donation of giverData.donations) {
+      donations.push(
+        {
+          amount: donation.amount,
+          currency: donation.token,
+          createdAt: moment(donation.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+          valueUsd: donation.usdValue,
+          giverAddress: donation.giverAddress,
+          txHash: donation.homeTxHash,
+          giverName : `https://trace.giveth.io/profile/${donation.giverAddress}`,
+          info: donation.projectInfo && `${donation.projectInfo.type}: ${donation.projectInfo.title}`,
+
+          //We just have donation over mainnet network on trace
+          network:'mainnet',
+
+          source: 'trace.giveth.io'
+        }
+      )
+    }
+  }
+  return donations
 }
 
 /**

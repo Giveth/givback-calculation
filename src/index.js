@@ -131,10 +131,9 @@ app.get(`/calculate-givback`, async (req, res) => {
 })
 
 
-app.get(`/eligible-donations`, async (req, res) => {
+const getEligibleAndNonEligibleDonations = async (req, res, eligible =true) =>{
   try {
-    const {endDate, startDate,purpleListStatus, download} = req.query;
-    const eligible = purpleListStatus !== 'justPurpleListDonations'
+    const {endDate, startDate, download} = req.query;
     const [traceDonations, givethIoDonations] = await Promise.all([
       givethTraceEligibleDonations(startDate, endDate, eligible),
       givethIoEligibleDonations(startDate, endDate, eligible)]
@@ -160,6 +159,14 @@ app.get(`/eligible-donations`, async (req, res) => {
       message: e.message
     })
   }
+}
+
+app.get(`/eligible-donations`, async (req, res) => {
+  await getEligibleAndNonEligibleDonations(req, res, true)
+})
+
+app.get(`/not-eligible-donations`, async (req, res) => {
+  await getEligibleAndNonEligibleDonations(req, res, false)
 })
 
 
