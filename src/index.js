@@ -146,7 +146,7 @@ const getEligibleAndNonEligibleDonations = async (req, res, eligible =true) =>{
 
     if (download === 'yes') {
       const csv = parse(donations);
-      const fileName = `${eligible ? 'eligible-donations' : 'purple-list-donations'}-${startDate}-${endDate}.csv`;
+      const fileName = `${eligible ? 'eligible-donations' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
       res.send(csv)
