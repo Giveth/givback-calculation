@@ -19,12 +19,14 @@ const {
 
 const {
   getDonationsReport: givethTraceDonations,
-  getEligibleDonations: givethTraceEligibleDonations
+  getEligibleDonations: givethTraceEligibleDonations,
+  getVerifiedPurpleListDonations: givethVerifiedPurpleListDonations
 } = require('./givethTraceService')
 
 const {
   getDonationsReport: givethIoDonations,
-  getEligibleDonations: givethIoEligibleDonations
+  getEligibleDonations: givethIoEligibleDonations,
+  getVerifiedPurpleListDonations: traceVerifiedPurpleListDonations
 } = require('./givethIoService')
 const {getPurpleList} = require('./commonServices')
 
@@ -167,6 +169,37 @@ app.get(`/eligible-donations`, async (req, res) => {
 
 app.get(`/not-eligible-donations`, async (req, res) => {
   await getEligibleAndNonEligibleDonations(req, res, false)
+})
+
+
+app.get(`/purpleList-donations-to-verifiedProjects`, async (req, res) => {
+  try {
+    const {endDate, startDate, download} = req.query;
+    const [traceDonations, givethIoDonations] = await Promise.all([
+      givethVerifiedPurpleListDonations(startDate, endDate),
+      traceVerifiedPurpleListDonations(startDate, endDate)]
+    );
+    const allDonations = traceDonations.concat(givethIoDonations);
+    const donations =
+      allDonations.sort((a, b) => {
+        return b.createdAt >= a.createdAt ? 1 : -1
+      })
+
+    if (download === 'yes') {
+      const csv = parse(donations);
+      const fileName = `purpleList-donations-to-verifiedProjectz-${startDate}-${endDate}.csv`;
+      res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+      res.setHeader('Content-type', 'application/json');
+      res.send(csv)
+    } else {
+      res.send(donations)
+    }
+  } catch (e) {
+    console.log("error happened", e)
+    res.status(400).send({
+      message: e.message
+    })
+  }
 })
 
 

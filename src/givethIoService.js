@@ -115,6 +115,80 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
   }
 }
 
+const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
+  try {
+    const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
+    const firstDate = moment(beginDate, timeFormat);
+    if (String(firstDate) === 'Invalid date') {
+      throw new Error('Invalid startDate')
+    }
+    const secondDate = moment(endDate, timeFormat);
+
+    if (String(secondDate) === 'Invalid date') {
+      throw new Error('Invalid endDate')
+    }
+    const query = gql`
+        {
+          donations {
+            valueUsd  
+            createdAt
+            currency
+            transactionId
+            transactionNetworkId
+            amount
+            project {
+              slug
+              verified
+            }
+            user {
+              name
+              email
+            }
+            fromWalletAddress
+            status
+          }
+        }
+    `;
+
+    const result = await request(`${givethiobaseurl}/graphql`, query)
+    let donationsToVerifiedProjects = result.donations
+      .filter(
+        donation =>
+          moment(donation.createdAt) < secondDate
+          && moment(donation.createdAt) > firstDate
+          && donation.valueUsd
+          && donation.project.verified
+          && donation.status === 'verified'
+      )
+
+
+    const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
+      return {
+        amount: item.amount,
+        currency: item.currency,
+        createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+        valueUsd: item.valueUsd,
+        giverAddress: item.fromWalletAddress,
+        txHash: item.transactionId,
+        network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
+        source: 'giveth.io',
+        giverName: item && item.user && item.user.name,
+        giverEmail: item && item.user && item.user.email,
+        projectLink: `https://giveth.io/project/${item.project.slug}`,
+      }
+    });
+
+    return await purpleListDonations(formattedDonationsToVerifiedProjects)
+
+  } catch (e) {
+    console.log('getEligibleDonations() error', {
+      error: e,
+      beginDate, endDate
+    })
+    throw e
+  }
+}
+
 
 /**
  *
@@ -146,5 +220,6 @@ const getDonationsReport = async (beginDate, endDate) => {
 
 module.exports = {
   getDonationsReport,
-  getEligibleDonations
+  getEligibleDonations,
+  getVerifiedPurpleListDonations
 }

@@ -38,6 +38,25 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
   }
 }
 
+const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
+  try {
+    /**
+     * @see @link{https://feathers.giveth.io/docs/?url=/docs#/verifiedProjectsGiversReport/get_verifiedProjectsGiversReport}
+     */
+    const verifiedProjectDonationsUrl = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beginDate}&toDate=${endDate}&projectType=verified`
+    const verifiedDonationsResult = (await axios.get(verifiedProjectDonationsUrl)).data.data
+    const verifiedDonations = formatDonations(verifiedDonationsResult);
+    return await purpleListDonations(verifiedDonations)
+
+  } catch (e) {
+    console.log('getEligibleDonations() error', {
+      error: e,
+      beginDate, endDate
+    })
+    throw e
+  }
+}
+
 function formatDonations (donationResult){
   const donations = []
   for (const giverData of donationResult) {
@@ -89,5 +108,6 @@ const getDonationsReport = async (beforeDate, endDate) => {
 
 module.exports = {
   getDonationsReport,
-  getEligibleDonations
+  getEligibleDonations,
+  getVerifiedPurpleListDonations
 }
