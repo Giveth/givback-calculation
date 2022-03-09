@@ -132,6 +132,14 @@
             "default": "no",
             "enum": ["yes","no"],
             "in": "query"
+          },
+          {
+            "name": "justCountListed",
+            "type": "string",
+            "description": "If you want to see the donations to listed projects",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
           }
         ],
         "responses": {

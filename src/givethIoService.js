@@ -14,7 +14,9 @@ const givethiobaseurl = process.env.GIVETHIO_BASE_URL
  * valueUsd:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" ,
  * source:'giveth.io'}]>}
  */
-const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
+const getEligibleDonations = async (beginDate, endDate,
+                                    eligible = true,
+                                    justCountListed =false) => {
   try {
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
     const firstDate = moment(beginDate, timeFormat);
@@ -38,6 +40,7 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
             project {
               slug
               verified
+              listed
             }
             user {
               name
@@ -70,7 +73,18 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
           && donation.status === 'verified'
       )
 
-
+    if (justCountListed){
+      donationsToNotVerifiedProjects = donationsToNotVerifiedProjects
+        .filter(
+          donation =>
+           donation.project.listed
+        )
+      donationsToVerifiedProjects = donationsToVerifiedProjects
+        .filter(
+          donation =>
+           donation.project.listed
+        )
+    }
     const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
       return {
         amount: item.amount,

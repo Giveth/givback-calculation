@@ -135,10 +135,10 @@ app.get(`/calculate-givback`, async (req, res) => {
 
 const getEligibleAndNonEligibleDonations = async (req, res, eligible =true) =>{
   try {
-    const {endDate, startDate, download} = req.query;
+    const {endDate, startDate, download, justCountListed} = req.query;
     const [traceDonations, givethIoDonations] = await Promise.all([
       givethTraceEligibleDonations(startDate, endDate, eligible),
-      givethIoEligibleDonations(startDate, endDate, eligible)]
+      givethIoEligibleDonations(startDate, endDate, eligible, justCountListed === 'yes')]
     );
     const allDonations = traceDonations.concat(givethIoDonations);
     const donations =
