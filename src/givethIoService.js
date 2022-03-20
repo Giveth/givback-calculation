@@ -37,6 +37,7 @@ const getEligibleDonations = async (beginDate, endDate,
             transactionId
             transactionNetworkId
             amount
+            isProjectVerified
             project {
               slug
               verified
@@ -59,7 +60,7 @@ const getEligibleDonations = async (beginDate, endDate,
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && donation.project.verified
+          && donation.isProjectVerified
           && donation.status === 'verified'
       )
 
@@ -69,7 +70,7 @@ const getEligibleDonations = async (beginDate, endDate,
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && !donation.project.verified
+          && !donation.isProjectVerified
           && donation.status === 'verified'
       )
 
@@ -145,11 +146,12 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
         {
           donations {
             valueUsd  
-            createdAt
+            createdAt 
             currency
             transactionId
             transactionNetworkId
             amount
+            isProjectVerified
             project {
               slug
               verified
@@ -171,7 +173,7 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && donation.project.verified
+          && donation.isProjectVerified
           && donation.status === 'verified'
       )
 
