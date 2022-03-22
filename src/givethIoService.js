@@ -28,9 +28,16 @@ const getEligibleDonations = async (beginDate, endDate,
     if (String(secondDate) === 'Invalid date') {
       throw new Error('Invalid endDate')
     }
+
+    // givethio get time in this format YYYYMMDD HH:m:ss
+    const fromDate = beginDate.split('/').join('').replace('-',' ')
+    const toDate = endDate.split('/').join('').replace('-',' ')
     const query = gql`
         {
-          donations {
+          donations(
+              fromDate:"${fromDate}", 
+              toDate:"${toDate}"
+          ) {
             valueUsd  
             createdAt
             currency
@@ -142,9 +149,15 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
     if (String(secondDate) === 'Invalid date') {
       throw new Error('Invalid endDate')
     }
+    // givethio get time in this format YYYYMMDD HH:m:ss
+    const fromDate = beginDate.split('/').join('').replace('-',' ')
+    const toDate = endDate.split('/').join('').replace('-',' ')
     const query = gql`
         {
-          donations {
+          donations(
+              fromDate:"${fromDate}", 
+              toDate:"${toDate}"
+          ) {
             valueUsd  
             createdAt 
             currency
