@@ -251,7 +251,11 @@ app.get('/givPrice', async (req, res) => {
     if (blockNumber && txHash) {
       throw new Error('You should fill just one of txHash, blockNumber')
     }
-    blockNumber = txHash ? await getBlockNumberOfTxHash(txHash, network) : Number(blockNumber)
+    try {
+      blockNumber = txHash ? await getBlockNumberOfTxHash(txHash, network) : Number(blockNumber)
+    } catch (e) {
+      console.log('Error getting blockNumber of txHash', e)
+    }
     const givPriceInEth = network === 'mainnet' ? await getEthGivPriceInMainnet(blockNumber) : await getEthGivPriceInXdai(blockNumber);
     const timestamp = blockNumber ? await getTimestampOfBlock(blockNumber, network) : new Date().getTime()
     const ethPriceInUsd = await getEthPriceTimeStamp(timestamp);
