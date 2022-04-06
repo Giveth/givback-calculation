@@ -19,12 +19,14 @@ const {
 
 const {
   getDonationsReport: givethTraceDonations,
+  getDonationsReportRetroactive: givethTraceDonationsRetroActive,
   getEligibleDonations: givethTraceEligibleDonations,
   getVerifiedPurpleListDonations: givethVerifiedPurpleListDonations
 } = require('./givethTraceService')
 
 const {
   getDonationsReport: givethIoDonations,
+  getDonationsReportRetroactive: givethIoDonationsRetroactive,
   getEligibleDonations: givethIoEligibleDonations,
   getVerifiedPurpleListDonations: traceVerifiedPurpleListDonations
 } = require('./givethIoService')
@@ -33,7 +35,8 @@ const {getPurpleList} = require('./commonServices')
 const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.get(`/calculate-givback`, async (req, res) => {
+app.get(`/calculate-givback`,
+  async (req, res) => {
   try {
     console.log('start calculating')
     const {
@@ -48,6 +51,119 @@ app.get(`/calculate-givback`, async (req, res) => {
     const [traceDonations, givethDonations] = await Promise.all([givethTraceDonations(startDate, endDate),
       givethIoDonations(startDate, endDate)
     ]);
+
+    const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
+      return previousValue + currentValue.totalDonationsUsdValue
+    }, 0);
+    const givethioDonationsAmount = givethDonations.reduce((previousValue, currentValue) => {
+      return previousValue + currentValue.totalDonationsUsdValue
+    }, 0);
+    const groupByGiverAddress = _.groupBy(traceDonations.concat(givethDonations), 'giverAddress')
+    const allDonations =  _.map(groupByGiverAddress, (value, key) => {
+      return {
+        giverAddress: key.toLowerCase(),
+        giverEmail: value[0].giverEmail,
+        giverName: value[0].giverName,
+        totalDonationsUsdValue: _.reduce(value, (total, o) => {
+          return total + o.totalDonationsUsdValue;
+        }, 0)
+      };
+    });
+    const result = allDonations.sort((a, b) => {
+      return b.totalDonationsUsdValue - a.totalDonationsUsdValue
+    });
+    let raisedValueSum = 0;
+    for (const donation of result) {
+      raisedValueSum += donation.totalDonationsUsdValue;
+    }
+    const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
+    const givDistributed = givFactor * (raisedValueSum / givPrice);
+    const donationsWithShare = result.map(item => {
+      const share = item.totalDonationsUsdValue / raisedValueSum;
+      const givback = (item.totalDonationsUsdValue / givPrice) * givFactor;
+      return {
+        giverAddress: item.giverAddress,
+        giverEmail: item.giverEmail,
+        giverName: item.giverName,
+        totalDonationsUsdValue: Number(item.totalDonationsUsdValue).toFixed(2),
+        givback: Number(givback.toFixed(2)),
+        givbackUsdValue: (givback * givPrice).toFixed(2),
+        share: Number(share.toFixed(8)),
+      }
+    }).filter(item => {
+      return item.share > 0
+    })
+    const smartContractCallParams = createSmartContractCallParams(
+      {
+        distributorAddress, nrGIVAddress, tokenDistroAddress,
+        donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0)
+      },
+      Number(maxAddressesPerFunctionCall) || 200
+    );
+    const response = {
+      raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
+      givDistributed: Math.ceil(givDistributed),
+      traceDonationsAmount: Math.ceil(traceDonationsAmount),
+      givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
+      givFactor: Number(givFactor.toFixed(4)),
+      ...smartContractCallParams,
+      givbacks: donationsWithShare,
+      purpleList:  await getPurpleList(),
+    };
+    if (download === 'yes') {
+      const csv = parse(response.givbacks.map(item => {
+        return {
+          givDistributed,
+          givFactor,
+          givPrice,
+          givbackUsdValue: givPrice * item.givback,
+          ...item
+        }
+      }));
+      const fileName = `givbackreport_${startDate}-${endDate}.csv`;
+      res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+      res.setHeader('Content-type', 'application/json');
+      res.send(csv)
+    } else {
+      res.send(response)
+    }
+  } catch (e) {
+    console.log("error happened", e)
+    res.status(400).send({
+      message: e.message
+    })
+  }
+})
+
+
+
+app.get(`/calculate-givback-retroactive`,
+  async (req, res) => {
+  try {
+    console.log('start calculating')
+    const {
+      download, endDate, startDate,
+      distributorAddress, nrGIVAddress, tokenDistroAddress,
+      maxAddressesPerFunctionCall,
+      eligible, toGiveth, justCountListed
+    } = req.query;
+    const givPrice = Number(req.query.givPrice)
+    const givAvailable = Number(req.query.givAvailable)
+    const givWorth = givAvailable * givPrice
+    const givMaxFactor = Number(req.query.givMaxFactor)
+    const [traceDonations, givethDonations] = await Promise.all(
+      [
+        givethTraceDonationsRetroActive(startDate, endDate , {
+          eligible: eligible ==='yes',
+          toGiveth: toGiveth ==='yes'
+        }),
+      givethIoDonationsRetroactive(startDate, endDate ,{
+        eligible: eligible ==='yes',
+        justCountListed : justCountListed==='yes',
+        toGiveth: toGiveth ==='yes'
+      })
+    ]);
+
 
     const traceDonationsAmount = traceDonations.reduce((previousValue, currentValue) => {
       return previousValue + currentValue.totalDonationsUsdValue
