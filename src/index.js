@@ -283,14 +283,6 @@ app.get(`/eligible-donations`, async (req, res) => {
   await getEligibleAndNonEligibleDonations(req, res, true)
 })
 
-app.get(`/donations-retroactive`, async (req, res) => {
-  await getEligibleAndNonEligibleDonationsWithGivethIoFilter(req,
-    res,
-    req.query.eligible ==='yes' ,
-    req.query.toGiveth ==='yes'
-  )
-})
-
 app.get(`/not-eligible-donations`, async (req, res) => {
   await getEligibleAndNonEligibleDonations(req, res, false)
 })

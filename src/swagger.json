@@ -205,38 +205,6 @@
         }
       }
     },
-    "/donations-retroactive": {
-      "get": {
-        "description": "Return all donations to verifed projects/campaigns and purpleList addresses are excluded",
-        "parameters": [
-          {
-            "name": "startDate",
-            "type": "string",
-            "default": "2022/01/14-16:00:00",
-            "in": "query"
-          },
-          {
-            "name": "endDate",
-            "type": "string",
-            "default": "2022/01/21-16:00:00",
-            "in": "query"
-          },
-          {
-            "name": "toGiveth",
-            "type": "string",
-            "default": "yes",
-            "enum": ["yes","no"],
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-
-        }
-      }
-    },
     "/not-eligible-donations": {
       "get": {
         "description": "Return all donations to unVerified projects/campaigns and donations to verified projects/campains from purple list addresses",
