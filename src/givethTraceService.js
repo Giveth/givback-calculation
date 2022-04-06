@@ -23,6 +23,12 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
     const unVerifiedProjectDonationsUrl = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beginDate}&toDate=${endDate}&projectType=unVerified`
     const verifiedDonationsResult = (await axios.get(verifiedProjectDonationsUrl)).data.data
     const unVerifiedDonationsResult = (await axios.get(unVerifiedProjectDonationsUrl)).data.data
+      console.log("trace donations length", {
+        verifiedProjectDonationsUrl,
+        unVerifiedProjectDonationsUrl,
+        verifiedDonationsResultLength: verifiedDonationsResult.length,
+        unVerifiedDonationsResultLength: unVerifiedDonationsResult.length
+      })
     const unVerifiedDonations = formatDonations(unVerifiedDonationsResult);
     const verifiedDonations = formatDonations(verifiedDonationsResult);
     return  eligible ?
@@ -105,9 +111,40 @@ const getDonationsReport = async (beforeDate, endDate) => {
   });
 
 }
+/**
+ *
+ * @param beforeDate:string, example: 2021/07/01-00:00:00
+ * @param endDate:string, example: 2021/07/12-00:00:00
+ * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
+ */
+//TODO After doing https://forum.giveth.io/t/retroactive-givbacks/412 this should be deleted
+const getDonationsReportRetroactive = async (beforeDate, endDate,{
+  eligible = true,
+  toGiveth
+}) => {
+  const donations = (await getEligibleDonations(beforeDate, endDate,
+    eligible)).filter(
+    donation => toGiveth ?
+      donation.info === 'Campaign: Giveth DApp Development' :
+      donation.info !== 'Campaign: Giveth DApp Development'
+  )
+  const groups = _.groupBy(donations, 'giverAddress')
+  return _.map(groups, function (value, key) {
+    return {
+      giverName: value[0].giverName,
+      giverEmail: value[0].giverEmail,
+      giverAddress: key.toLowerCase(),
+      totalDonationsUsdValue: _.reduce(value, function (total, o) {
+        return total + o.valueUsd;
+      }, 0)
+    };
+  });
+
+}
 
 module.exports = {
   getDonationsReport,
   getEligibleDonations,
-  getVerifiedPurpleListDonations
+  getVerifiedPurpleListDonations,
+  getDonationsReportRetroactive
 }
