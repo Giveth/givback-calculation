@@ -83,7 +83,7 @@
           {
             "name": "startDate",
             "type": "string",
-            "default": "2021/02/28-19:59:59",
+            "default": "2021/02/28-17:59:59",
             "in": "query"
           },
           {
