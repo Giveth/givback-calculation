@@ -220,7 +220,7 @@ app.get(`/calculate-givback-retroactive`,
         givFactor: Number(givFactor.toFixed(4)),
         ...smartContractCallParams,
         givbacks: donationsWithShare,
-        purpleList: await getPurpleList(),
+        purpleList: [],
       };
       if (download === 'yes') {
         const csv = parse(response.givbacks.map(item => {
