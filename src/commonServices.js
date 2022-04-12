@@ -20,8 +20,8 @@ const getPurpleList = async () => {
 }
 
 
-const filterDonationsWithPurpleList = async (donations) =>{
-  const purpleList = await getPurpleList()
+const filterDonationsWithPurpleList = async (donations, disablePurpleList = false) =>{
+  const purpleList = disablePurpleList ? [] : await getPurpleList()
   return donations.filter(item => {
     const isGiverPurpleList = purpleList.includes(item.giverAddress.toLowerCase())
     const isDonationWhitelisted = whiteListDonations.includes(item.txHash.toLowerCase())
@@ -38,8 +38,8 @@ const filterDonationsWithPurpleList = async (donations) =>{
 }
 
 
-const purpleListDonations = async (donations) =>{
-  const purpleList = await getPurpleList()
+const purpleListDonations = async (donations, disablePurpleList = false) =>{
+  const purpleList = disablePurpleList ? [] : await getPurpleList()
   return donations.filter(item => {
     return purpleList.includes(item.giverAddress.toLowerCase())
   })
