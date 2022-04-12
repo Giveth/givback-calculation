@@ -14,9 +14,14 @@ const givethiobaseurl = process.env.GIVETHIO_BASE_URL
  * valueUsd:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" ,
  * source:'giveth.io'}]>}
  */
-const getEligibleDonations = async (beginDate, endDate,
-                                    eligible = true,
-                                    justCountListed =false) => {
+const getEligibleDonations = async (
+  {
+    beginDate,
+    endDate,
+    eligible = true,
+    disablePurpleList = false,
+    justCountListed = false
+  }) => {
   try {
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
     const firstDate = moment(beginDate, timeFormat);
@@ -30,8 +35,8 @@ const getEligibleDonations = async (beginDate, endDate,
     }
 
     // givethio get time in this format YYYYMMDD HH:m:ss
-    const fromDate = beginDate.split('/').join('').replace('-',' ')
-    const toDate = endDate.split('/').join('').replace('-',' ')
+    const fromDate = beginDate.split('/').join('').replace('-', ' ')
+    const toDate = endDate.split('/').join('').replace('-', ' ')
     const query = gql`
         {
           donations(
@@ -81,16 +86,16 @@ const getEligibleDonations = async (beginDate, endDate,
           && donation.status === 'verified'
       )
 
-    if (justCountListed){
+    if (justCountListed) {
       donationsToNotVerifiedProjects = donationsToNotVerifiedProjects
         .filter(
           donation =>
-           donation.project.listed
+            donation.project.listed
         )
       donationsToVerifiedProjects = donationsToVerifiedProjects
         .filter(
           donation =>
-           donation.project.listed
+            donation.project.listed
         )
     }
     const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
@@ -125,8 +130,8 @@ const getEligibleDonations = async (beginDate, endDate,
       }
     });
     return eligible ?
-      await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects) :
-      (await purpleListDonations(formattedDonationsToVerifiedProjects)).concat(formattedDonationsToNotVerifiedProjects)
+      await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects, disablePurpleList ) :
+      (await purpleListDonations(formattedDonationsToVerifiedProjects, disablePurpleList)).concat(formattedDonationsToNotVerifiedProjects)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {
@@ -150,8 +155,8 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
       throw new Error('Invalid endDate')
     }
     // givethio get time in this format YYYYMMDD HH:m:ss
-    const fromDate = beginDate.split('/').join('').replace('-',' ')
-    const toDate = endDate.split('/').join('').replace('-',' ')
+    const fromDate = beginDate.split('/').join('').replace('-', ' ')
+    const toDate = endDate.split('/').join('').replace('-', ' ')
     const query = gql`
         {
           donations(
@@ -227,7 +232,7 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
  */
 const getDonationsReport = async (beginDate, endDate) => {
   try {
-    const donations = await getEligibleDonations(beginDate, endDate)
+    const donations = await getEligibleDonations({beginDate, endDate})
 
     const groups = _.groupBy(donations, 'giverAddress')
     return _.map(groups, function (value, key) {
@@ -255,15 +260,21 @@ const getDonationsReport = async (beginDate, endDate) => {
  * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
 //TODO After doing https://forum.giveth.io/t/retroactive-givbacks/412 this should be deleted
-const getDonationsReportRetroactive = async (beginDate, endDate,{
+const getDonationsReportRetroactive = async (beginDate, endDate, {
   eligible = true,
   justCountListed = false,
   toGiveth
 }) => {
   try {
-    const donations = (await getEligibleDonations(beginDate, endDate, eligible, justCountListed)).filter(
+    const donations = (await getEligibleDonations(
+      {
+        beginDate, endDate, eligible, justCountListed,
+        disablePurpleList: true
+
+      }
+    )).filter(
       donation => toGiveth ?
-        donation.projectLink === 'https://giveth.io/project/the-giveth-community-of-makers':
+        donation.projectLink === 'https://giveth.io/project/the-giveth-community-of-makers' :
         donation.projectLink !== 'https://giveth.io/project/the-giveth-community-of-makers'
     )
 

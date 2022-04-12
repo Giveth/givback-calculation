@@ -14,7 +14,12 @@ const traceBaseUrl = process.env.TRACE_BASE_URL
  * valueUsd:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9",
  * source:'trace.giveth.io', txHash:"", network:"mainnet"}]>}
  */
-const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
+const getEligibleDonations = async ({
+                                      beginDate,
+                                      endDate,
+                                      eligible = true,
+                                      disablePurpleList = false
+                                    }) => {
   try {
     /**
      * @see @link{https://feathers.giveth.io/docs/?url=/docs#/verifiedProjectsGiversReport/get_verifiedProjectsGiversReport}
@@ -23,17 +28,17 @@ const getEligibleDonations = async (beginDate, endDate, eligible = true) => {
     const unVerifiedProjectDonationsUrl = `${traceBaseUrl}/verifiedProjectsGiversReport?fromDate=${beginDate}&toDate=${endDate}&projectType=unVerified`
     const verifiedDonationsResult = (await axios.get(verifiedProjectDonationsUrl)).data.data
     const unVerifiedDonationsResult = (await axios.get(unVerifiedProjectDonationsUrl)).data.data
-      console.log("trace donations length", {
-        verifiedProjectDonationsUrl,
-        unVerifiedProjectDonationsUrl,
-        verifiedDonationsResultLength: verifiedDonationsResult.length,
-        unVerifiedDonationsResultLength: unVerifiedDonationsResult.length
-      })
+    console.log("trace donations length", {
+      verifiedProjectDonationsUrl,
+      unVerifiedProjectDonationsUrl,
+      verifiedDonationsResultLength: verifiedDonationsResult.length,
+      unVerifiedDonationsResultLength: unVerifiedDonationsResult.length
+    })
     const unVerifiedDonations = formatDonations(unVerifiedDonationsResult);
     const verifiedDonations = formatDonations(verifiedDonationsResult);
-    return  eligible ?
-      await filterDonationsWithPurpleList(verifiedDonations):
-      (await purpleListDonations(verifiedDonations)).concat(unVerifiedDonations)
+    return eligible ?
+      await filterDonationsWithPurpleList(verifiedDonations, disablePurpleList) :
+      (await purpleListDonations(verifiedDonations, disablePurpleList)).concat(unVerifiedDonations)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {
@@ -63,7 +68,7 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
   }
 }
 
-function formatDonations (donationResult){
+function formatDonations(donationResult) {
   const donations = []
   for (const giverData of donationResult) {
     for (const donation of giverData.donations) {
@@ -75,11 +80,11 @@ function formatDonations (donationResult){
           valueUsd: donation.usdValue,
           giverAddress: donation.giverAddress,
           txHash: donation.homeTxHash,
-          giverName : `https://trace.giveth.io/profile/${donation.giverAddress}`,
+          giverName: `https://trace.giveth.io/profile/${donation.giverAddress}`,
           info: donation.projectInfo && `${donation.projectInfo.type}: ${donation.projectInfo.title}`,
 
           //We just have donation over mainnet network on trace
-          network:'mainnet',
+          network: 'mainnet',
 
           source: 'trace.giveth.io'
         }
@@ -91,13 +96,14 @@ function formatDonations (donationResult){
 
 /**
  *
- * @param beforeDate:string, example: 2021/07/01-00:00:00
+ * @param beginDate:string, example: 2021/07/01-00:00:00
  * @param endDate:string, example: 2021/07/12-00:00:00
  * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
-const getDonationsReport = async (beforeDate, endDate) => {
+const getDonationsReport = async (beginDate, endDate) => {
 
-  const donations = await getEligibleDonations(beforeDate, endDate)
+  const donations = await getEligibleDonations(
+    {beginDate, endDate})
   const groups = _.groupBy(donations, 'giverAddress')
   return _.map(groups, function (value, key) {
     return {
@@ -113,17 +119,23 @@ const getDonationsReport = async (beforeDate, endDate) => {
 }
 /**
  *
- * @param beforeDate:string, example: 2021/07/01-00:00:00
+ * @param beginDate:string, example: 2021/07/01-00:00:00
  * @param endDate:string, example: 2021/07/12-00:00:00
  * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
 //TODO After doing https://forum.giveth.io/t/retroactive-givbacks/412 this should be deleted
-const getDonationsReportRetroactive = async (beforeDate, endDate,{
+const getDonationsReportRetroactive = async (beginDate, endDate, {
   eligible = true,
-  toGiveth
+  toGiveth,
 }) => {
-  const donations = (await getEligibleDonations(beforeDate, endDate,
-    eligible)).filter(
+  const donations = (await getEligibleDonations(
+    {
+      beginDate,
+      endDate,
+      eligible,
+      disablePurpleList: true
+    }
+  )).filter(
     donation => toGiveth ?
       donation.info === 'Campaign: Giveth DApp Development' :
       donation.info !== 'Campaign: Giveth DApp Development'
