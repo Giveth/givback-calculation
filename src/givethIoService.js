@@ -131,7 +131,7 @@ const getEligibleDonations = async (
     });
     return eligible ?
       await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects, disablePurpleList ) :
-      (await purpleListDonations(formattedDonationsToVerifiedProjects)).concat(formattedDonationsToNotVerifiedProjects)
+      (await purpleListDonations(formattedDonationsToVerifiedProjects, disablePurpleList)).concat(formattedDonationsToNotVerifiedProjects)
 
   } catch (e) {
     console.log('getEligibleDonations() error', {

@@ -119,7 +119,7 @@ const getDonationsReport = async (beginDate, endDate) => {
 }
 /**
  *
- * @param beforeDate:string, example: 2021/07/01-00:00:00
+ * @param beginDate:string, example: 2021/07/01-00:00:00
  * @param endDate:string, example: 2021/07/12-00:00:00
  * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
