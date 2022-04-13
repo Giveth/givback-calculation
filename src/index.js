@@ -10,7 +10,8 @@ const swaggerUi = require('swagger-ui-express');
 const {parse} = require('json2csv');
 
 const swaggerDocument = require('./swagger.json');
-const {createSmartContractCallParams} = require("./utils");
+const {createSmartContractCallParams,
+  createSmartContractCallAddBatchParams} = require("./utils");
 const {
   getBlockNumberOfTxHash, getTimestampOfBlock, getEthGivPriceInMainnet,
   getEthGivPriceInXdai, getEthPriceTimeStamp
@@ -144,7 +145,8 @@ app.get(`/calculate-givback-retroactive`,
         download, endDate, startDate,
         distributorAddress, nrGIVAddress, tokenDistroAddress,
         maxAddressesPerFunctionCall,
-        eligible, toGiveth, justCountListed
+        eligible, toGiveth, justCountListed,
+        relayerAddress
       } = req.query;
       const givPrice = Number(req.query.givPrice)
       const givAvailable = Number(req.query.givAvailable)
@@ -205,10 +207,12 @@ app.get(`/calculate-givback-retroactive`,
       }).filter(item => {
         return item.share > 0
       })
-      const smartContractCallParams = createSmartContractCallParams(
+      const smartContractCallParams = await createSmartContractCallAddBatchParams(
         {
           distributorAddress, nrGIVAddress, tokenDistroAddress,
-          donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0)
+          donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0),
+          nonce: 123,
+          relayerAddress
         },
         Number(maxAddressesPerFunctionCall) || 200
       );
@@ -218,7 +222,7 @@ app.get(`/calculate-givback-retroactive`,
         traceDonationsAmount: Math.ceil(traceDonationsAmount),
         givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
         givFactor: Number(givFactor.toFixed(4)),
-        ...smartContractCallParams,
+        smartContractCallParams,
         givbacks: donationsWithShare,
         purpleList: [],
       };

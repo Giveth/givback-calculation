@@ -1,3 +1,7 @@
+const {ethers} = require("ethers");
+const Web3 = require('web3');
+const {hexlify, solidityKeccak256} = ethers.utils;
+
 /**
  *
  * @param givbacks [{
@@ -15,14 +19,47 @@ const createSmartContractCallParams = ({
   const response = {}
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
   for (let i = 0; i < partNumbers; i++) {
-    response[`smartContractCallParams-${i+1}`] = getSmartContractParamsPart({
+    response[`smartContractCallParams-${i + 1}`] = getSmartContractParamsPart({
       distributorAddress,
       nrGIVAddress,
       tokenDistroAddress,
-      donationsWithShare: donationsWithShare.slice(i*maxAddressesPerFunctionCall, (i+1)*maxAddressesPerFunctionCall)
+      donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall)
     })
   }
   return response;
+}
+
+
+const createSmartContractCallAddBatchParams = async ({
+                                                       distributorAddress,
+                                                       nrGIVAddress,
+                                                       tokenDistroAddress,
+                                                       donationsWithShare,
+                                                       relayerAddress
+                                                     }, maxAddressesPerFunctionCall) => {
+  const response = {}
+  const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
+  let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${relayerAddress} `;
+  result += 'addBatches(bytes32[] calldata batches) '
+  const raw_data = []
+  let nonce = await getLastNonceForWalletAddress(relayerAddress)
+  for (let i = 0; i < partNumbers; i++) {
+    const smartContractBatchData = getSmartContractAddBatchesHash(
+      {
+        donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall),
+        nonce
+      }
+    )
+    const hash = smartContractBatchData.hash
+    raw_data.push(smartContractBatchData.rawData)
+    result += `[${hash}] `
+    nonce += 1
+
+  }
+  return {
+    result,
+    raw_data
+  };
 }
 
 const getSmartContractParamsPart = ({
@@ -46,6 +83,26 @@ const getSmartContractParamsPart = ({
   return result
 }
 
+const getSmartContractAddBatchesHash = ({
+                                          distributorAddress,
+                                          nrGIVAddress,
+                                          tokenDistroAddress,
+                                          donationsWithShare,
+                                          nonce
+                                        }) => {
+  const rawData =  {
+    amounts: donationsWithShare.map(
+      givback => String(
+        convertExponentialNumber(givback.givback * 10 ** 18)
+      )
+    ),
+    recipients: donationsWithShare.map(({giverAddress}) => giverAddress),
+    nonce
+  }
+  const hash =  hashBatchEthers(rawData)
+  return {hash, rawData}
+}
+
 
 const convertExponentialNumber = (n) => {
   const sign = +n < 0 ? "-" : "",
@@ -62,6 +119,36 @@ const convertExponentialNumber = (n) => {
     : sign + lead + (+pow >= decimal.length ? (decimal + "0".repeat(Math.max(+pow - decimal.length || 0, 0))) : (decimal.slice(0, +pow) + "." + decimal.slice(+pow)))
 }
 
+
+function hashBatchEthers({
+                           nonce,
+                           recipients,
+                           amounts
+                         }) {
+  console.log('hashBatchEthers() input', {nonce, recipients, amounts})
+  const hash = hexlify(
+    solidityKeccak256(
+      ["uint256", "address[]", "uint256[]"],
+      [nonce, recipients, amounts],
+    ),
+  );
+  console.log('hashBatchEthers() hash', hash);
+
+  return hash;
+}
+
+const xdaiWeb3NodeUrl = process.env.XDAI_NODE_HTTP_URL
+const xdaiWeb3 = new Web3(xdaiWeb3NodeUrl);
+
+const getLastNonceForWalletAddress = async (walletAddress) => {
+  const userTransactionsCount = await xdaiWeb3.eth.getTransactionCount(
+    walletAddress
+  );
+  return userTransactionsCount - 1
+}
+
 module.exports = {
-  createSmartContractCallParams
+  createSmartContractCallParams,
+  createSmartContractCallAddBatchParams,
+  getLastNonceForWalletAddress
 }
