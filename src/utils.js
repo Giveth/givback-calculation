@@ -37,7 +37,6 @@ const createSmartContractCallAddBatchParams = async ({
                                                        donationsWithShare,
                                                        relayerAddress
                                                      }, maxAddressesPerFunctionCall) => {
-  const response = {}
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
   let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${relayerAddress} `;
   result += 'addBatches(bytes32[] calldata batches) '

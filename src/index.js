@@ -211,7 +211,6 @@ app.get(`/calculate-givback-retroactive`,
         {
           distributorAddress, nrGIVAddress, tokenDistroAddress,
           donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0),
-          nonce: 123,
           relayerAddress
         },
         Number(maxAddressesPerFunctionCall) || 200
