@@ -39,7 +39,7 @@ const createSmartContractCallAddBatchParams = async ({
                                                      }, maxAddressesPerFunctionCall) => {
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
   let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${relayerAddress} `;
-  result += 'addBatches(bytes32[] calldata batches) '
+  result += 'addBatches(bytes32[] calldata batches) ['
   const raw_data = []
   let nonce = await getLastNonceForWalletAddress(relayerAddress)
   for (let i = 0; i < partNumbers; i++) {
@@ -57,6 +57,7 @@ const createSmartContractCallAddBatchParams = async ({
     result += `${hash}`
     nonce += 1
   }
+  result+=']'
   return {
     result,
     raw_data
