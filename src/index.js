@@ -258,7 +258,7 @@ const getEligibleAndNonEligibleDonations = async (req, res, eligible = true) => 
       givethTraceEligibleDonations({startDate, endDate, eligible}),
       givethIoEligibleDonations(
         {
-          startDate,
+          beginDate: startDate,
           endDate,
           eligible,
           justCountListed: justCountListed === 'yes'
