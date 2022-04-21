@@ -255,7 +255,8 @@ const getEligibleAndNonEligibleDonations = async (req, res, eligible = true) => 
   try {
     const {endDate, startDate, download, justCountListed} = req.query;
     const [traceDonations, givethIoDonations] = await Promise.all([
-      givethTraceEligibleDonations({startDate, endDate, eligible}),
+      givethTraceEligibleDonations({
+        beginDate:startDate, endDate, eligible}),
       givethIoEligibleDonations(
         {
           beginDate: startDate,
