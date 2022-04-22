@@ -1,5 +1,6 @@
 const {ethers} = require("ethers");
 const Web3 = require('web3');
+const {pinJSONToIPFS} = require("./pinataUtils");
 const {hexlify, solidityKeccak256} = ethers.utils;
 
 /**
@@ -40,27 +41,30 @@ const createSmartContractCallAddBatchParams = async ({
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
   let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${relayerAddress} `;
   result += 'addBatches(bytes32[] calldata batches) ['
-  const raw_data = []
+  const hashParams = {}
   let nonce = await getLastNonceForWalletAddress(relayerAddress)
   for (let i = 0; i < partNumbers; i++) {
     if (i !== 0){
       result += ','
     }
-    const smartContractBatchData = getSmartContractAddBatchesHash(
+    const smartContractBatchData = await getSmartContractAddBatchesHash(
       {
         donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall),
         nonce
       }
     )
     const hash = smartContractBatchData.hash
-    raw_data.push(smartContractBatchData.rawData)
     result += `${hash}`
+    hashParams[hash] = {
+      ipfsHash: smartContractBatchData.ipfsHash,
+      rawData:smartContractBatchData.rawData
+    }
     nonce += 1
   }
   result+=']'
   return {
     result,
-    raw_data
+    hashParams
   };
 }
 
@@ -85,7 +89,7 @@ const getSmartContractParamsPart = ({
   return result
 }
 
-const getSmartContractAddBatchesHash = ({
+const getSmartContractAddBatchesHash = async ({
                                           distributorAddress,
                                           nrGIVAddress,
                                           tokenDistroAddress,
@@ -93,16 +97,18 @@ const getSmartContractAddBatchesHash = ({
                                           nonce
                                         }) => {
   const rawData =  {
+    nonce,
     amounts: donationsWithShare.map(
       givback => String(
         convertExponentialNumber(givback.givback * 10 ** 18)
       )
     ),
     recipients: donationsWithShare.map(({giverAddress}) => giverAddress),
-    nonce
+
   }
+  const ipfsHash =await pinJSONToIPFS({jsonBody: rawData})
   const hash =  hashBatchEthers(rawData)
-  return {hash, rawData}
+  return {ipfsHash, hash, rawData}
 }
 
 
