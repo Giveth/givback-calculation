@@ -41,27 +41,32 @@ const createSmartContractCallAddBatchParams = async ({
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
   let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${relayerAddress} `;
   result += 'addBatches(bytes32[] calldata batches) ['
-  const hashParams = {}
+  const hashParams = {
+    ipfsLink:''
+  }
   let nonce = await getLastNonceForWalletAddress(relayerAddress)
+  const rawDatasForHash  = []
   for (let i = 0; i < partNumbers; i++) {
     if (i !== 0){
       result += ','
     }
-    const smartContractBatchData = await getSmartContractAddBatchesHash(
+    const smartContractBatchData =  getSmartContractAddBatchesHash(
       {
         donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall),
         nonce
       }
     )
     const hash = smartContractBatchData.hash
+    rawDatasForHash.push(smartContractBatchData.rawData)
     result += `${hash}`
     hashParams[hash] = {
-      ipfsHash: smartContractBatchData.ipfsHash,
       rawData:smartContractBatchData.rawData
     }
     nonce += 1
   }
-  result+=']'
+  const ipfsHash = await pinJSONToIPFS({jsonBody: rawDatasForHash})
+  result+=`] ${ipfsHash}`
+  hashParams.ipfsLink = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`
   return {
     result,
     hashParams
@@ -89,7 +94,7 @@ const getSmartContractParamsPart = ({
   return result
 }
 
-const getSmartContractAddBatchesHash = async ({
+const getSmartContractAddBatchesHash =  ({
                                           distributorAddress,
                                           nrGIVAddress,
                                           tokenDistroAddress,
@@ -106,9 +111,8 @@ const getSmartContractAddBatchesHash = async ({
     recipients: donationsWithShare.map(({giverAddress}) => giverAddress),
 
   }
-  const ipfsHash =await pinJSONToIPFS({jsonBody: rawData})
   const hash =  hashBatchEthers(rawData)
-  return {ipfsHash, hash, rawData}
+  return { hash, rawData}
 }
 
 

@@ -14,6 +14,7 @@ const pinJSONToIPFS = async ({
           pinata_secret_api_key: pinataSecretApiKey
         }
       });
+    console.log('pinJSONToIPFS result hash', result.data.IpfsHash )
     return result.data.IpfsHash;
   } catch (e) {
     console.log('pinJSONToIPFS error', e)
