@@ -40,7 +40,7 @@ const createSmartContractCallAddBatchParams = async ({
                                                      }, maxAddressesPerFunctionCall) => {
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
   let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${relayerAddress} `;
-  result += 'addBatches(bytes32[] calldata batches) ['
+  result += 'addBatches(bytes32[],bytes) ['
   const hashParams = {
     ipfsLink:''
   }
