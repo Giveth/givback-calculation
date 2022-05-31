@@ -3,33 +3,6 @@ const Web3 = require('web3');
 const {pinJSONToIPFS} = require("./pinataUtils");
 const {hexlify, solidityKeccak256} = ethers.utils;
 
-/**
- *
- * @param givbacks [{
- "giverAddress": string,
- "givback": number,
- }]
- * @returns {string}
- */
-const createSmartContractCallParams = ({
-                                         distributorAddress,
-                                         nrGIVAddress,
-                                         tokenDistroAddress,
-                                         donationsWithShare
-                                       }, maxAddressesPerFunctionCall) => {
-  const response = {}
-  const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
-  for (let i = 0; i < partNumbers; i++) {
-    response[`smartContractCallParams-${i + 1}`] = getSmartContractParamsPart({
-      distributorAddress,
-      nrGIVAddress,
-      tokenDistroAddress,
-      donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall)
-    })
-  }
-  return response;
-}
-
 
 const createSmartContractCallAddBatchParams = async ({
                                                        distributorAddress,
@@ -73,31 +46,9 @@ const createSmartContractCallAddBatchParams = async ({
   };
 }
 
-const getSmartContractParamsPart = ({
-                                      distributorAddress,
-                                      nrGIVAddress,
-                                      tokenDistroAddress,
-                                      donationsWithShare
-                                    }) => {
-  let result = `connect ${nrGIVAddress} token-manager voting:1 act ${distributorAddress} ${tokenDistroAddress} `;
-  result += 'sendGIVbacks(address[],uint256[]) ['
-  for (let i = 0; i < donationsWithShare.length; i++) {
-    if (i > 0) {
-      // We should not put comma before first wallet address, so we do tihs checking
-      result += ','
-    }
-    result += donationsWithShare[i].giverAddress
-  }
-  result += '] ['
-  result += `${donationsWithShare.map(givback => convertExponentialNumber(givback.givback * 10 ** 18))}`
-  result += ']'
-  return result
-}
+
 
 const getSmartContractAddBatchesHash =  ({
-                                          distributorAddress,
-                                          nrGIVAddress,
-                                          tokenDistroAddress,
                                           donationsWithShare,
                                           nonce
                                         }) => {
@@ -160,7 +111,6 @@ const getLastNonceForWalletAddress = async (walletAddress) => {
 }
 
 module.exports = {
-  createSmartContractCallParams,
   createSmartContractCallAddBatchParams,
   getLastNonceForWalletAddress
 }
