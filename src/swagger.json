@@ -54,6 +54,12 @@
             "in": "query"
           },
           {
+            "name": "relayerAddress",
+            "type": "string",
+            "default": "0xCa60c66a8C3449047c213295eCd82C80B1529a10",
+            "in": "query"
+          },
+          {
             "name": "maxAddressesPerFunctionCall",
             "type": "string",
             "default": "200",
