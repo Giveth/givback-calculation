@@ -44,7 +44,7 @@
           {
             "name": "relayerAddress",
             "type": "string",
-            "default": "0xCa60c66a8C3449047c213295eCd82C80B1529a10",
+            "default": "0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7",
             "in": "query"
           },
           {
