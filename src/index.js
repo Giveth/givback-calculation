@@ -41,7 +41,7 @@ app.get(`/calculate-givback`,
       console.log('start calculating')
       const {
         download, endDate, startDate,
-        distributorAddress, nrGIVAddress, tokenDistroAddress,
+         nrGIVAddress,
         maxAddressesPerFunctionCall,
         relayerAddress
       } = req.query;
@@ -96,7 +96,7 @@ app.get(`/calculate-givback`,
       })
       const smartContractCallParams =  await createSmartContractCallAddBatchParams(
         {
-          distributorAddress, nrGIVAddress, tokenDistroAddress,
+           nrGIVAddress,
           donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0),
           relayerAddress
         },

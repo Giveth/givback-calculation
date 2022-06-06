@@ -5,9 +5,7 @@ const {hexlify, solidityKeccak256} = ethers.utils;
 
 
 const createSmartContractCallAddBatchParams = async ({
-                                                       distributorAddress,
                                                        nrGIVAddress,
-                                                       tokenDistroAddress,
                                                        donationsWithShare,
                                                        relayerAddress
                                                      }, maxAddressesPerFunctionCall) => {
