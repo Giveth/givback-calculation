@@ -31,6 +31,7 @@ const {
   getVerifiedPurpleListDonations: traceVerifiedPurpleListDonations
 } = require('./givethIoService')
 const {getPurpleList} = require('./commonServices')
+const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
 
 const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -41,7 +42,6 @@ app.get(`/calculate-givback`,
       console.log('start calculating')
       const {
         download, endDate, startDate,
-         nrGIVAddress,
         maxAddressesPerFunctionCall,
         relayerAddress
       } = req.query;
@@ -144,7 +144,7 @@ app.get(`/calculate-givback-retroactive`,
       console.log('start calculating')
       const {
         download, endDate, startDate,
-        distributorAddress, nrGIVAddress, tokenDistroAddress,
+        distributorAddress, tokenDistroAddress,
         maxAddressesPerFunctionCall,
         eligible, toGiveth, justCountListed,
         relayerAddress
