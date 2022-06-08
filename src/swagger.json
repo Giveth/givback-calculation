@@ -36,24 +36,6 @@
             "in": "query"
           },
           {
-            "name": "nrGIVAddress",
-            "type": "string",
-            "default": "0xA1514067E6fE7919FB239aF5259FfF120902b4f9",
-            "in": "query"
-          },
-          {
-            "name": "tokenDistroAddress",
-            "type": "string",
-            "default": "0xc0dbDcA66a0636236fAbe1B3C16B1bD4C84bB1E1",
-            "in": "query"
-          },
-          {
-            "name": "distributorAddress",
-            "type": "string",
-            "default": "agent:0",
-            "in": "query"
-          },
-          {
             "name": "relayerAddress",
             "type": "string",
             "default": "0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7",
@@ -120,24 +102,6 @@
             "name": "relayerAddress",
             "type": "string",
             "default": "0xCa60c66a8C3449047c213295eCd82C80B1529a10",
-            "in": "query"
-          },
-          {
-            "name": "nrGIVAddress",
-            "type": "string",
-            "default": "0xA1514067E6fE7919FB239aF5259FfF120902b4f9",
-            "in": "query"
-          },
-          {
-            "name": "tokenDistroAddress",
-            "type": "string",
-            "default": "0x18a46865AAbAf416a970eaA8625CFC430D2364A1",
-            "in": "query"
-          },
-          {
-            "name": "distributorAddress",
-            "type": "string",
-            "default": "agent:0",
             "in": "query"
           },
           {
