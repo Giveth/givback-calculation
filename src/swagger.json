@@ -64,6 +64,57 @@
         }
       }
     },
+    "/calculate-nice-token": {
+      "get": {
+        "tags": ["NICE"],
+        "parameters": [
+          {
+            "name": "startDate",
+            "type": "string",
+            "default": "2022/01/14-16:00:00",
+            "in": "query"
+          },
+          {
+            "name": "endDate",
+            "type": "string",
+            "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+          {
+            "name": "nicePerDollar",
+            "type": "string",
+            "default": "0.5",
+            "in": "query"
+          },
+          {
+            "name": "whitelistTokens",
+            "type": "string",
+            "default": "GIV,ETH,WETH",
+            "in": "query"
+          },
+          {
+            "name": "projectSlugs",
+            "type": "string",
+            "default": "unchain-fund,the-giveth-community-of-makers,unchain-fund",
+            "in": "query"
+          },
+          {
+            "name": "download",
+            "type": "string",
+            "description": "If you want to see json here set no, but if you want to download a file set yes",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
+    },
     "/calculate-givback-retroactive": {
       "get": {
         "description": "WARNING: this web service is just for retroactive givbacks",
@@ -170,6 +221,58 @@
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
             "enum": ["yes","no"],
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
+    },
+    "/eligible-donations-for-nice-token": {
+      "get": {
+        "description": "Return all donations to verifed projects/campaigns and purpleList addresses are excluded",
+        "tags": ["NICE"],
+        "parameters": [
+          {
+            "name": "startDate",
+            "type": "string",
+            "default": "2022/01/14-16:00:00",
+            "in": "query"
+          },
+          {
+            "name": "endDate",
+            "type": "string",
+            "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+          {
+            "name": "download",
+            "type": "string",
+            "description": "If you want to see json here set no, but if you want to download a file set yes",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
+          },
+          {
+            "name": "nicePerDollar",
+            "type": "string",
+            "default": "0.5",
+            "in": "query"
+          },
+          {
+            "name": "whitelistTokens",
+            "type": "string",
+            "default": "GIV,ETH,WETH",
+            "in": "query"
+          },
+          {
+            "name": "projectSlugs",
+            "type": "string",
+            "default": "unchain-fund,the-giveth-community-of-makers,unchain-fund",
             "in": "query"
           }
         ],

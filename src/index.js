@@ -137,6 +137,79 @@ app.get(`/calculate-givback`,
     }
   })
 
+app.get(`/calculate-nice-token`,
+  async (req, res) => {
+    try {
+      console.log('start calculating')
+      const {
+        download, endDate, startDate,
+        whitelistTokens,
+        projectSlugs, nicePerDollar
+      } = req.query;
+      const tokens = whitelistTokens.split(',')
+      const slugs = projectSlugs.split(',')
+
+      const givethDonations = await givethIoDonations(startDate, endDate, tokens, slugs)
+
+      const givethioDonationsAmount = givethDonations.reduce((previousValue, currentValue) => {
+        return previousValue + currentValue.totalDonationsUsdValue
+      }, 0);
+      const groupByGiverAddress = _.groupBy(givethDonations, 'giverAddress')
+      const allDonations = _.map(groupByGiverAddress, (value, key) => {
+        return {
+          giverAddress: key.toLowerCase(),
+          giverEmail: value[0].giverEmail,
+          giverName: value[0].giverName,
+          totalDonationsUsdValue: _.reduce(value, (total, o) => {
+            return total + o.totalDonationsUsdValue;
+          }, 0)
+        };
+      });
+      const result = allDonations.sort((a, b) => {
+        return b.totalDonationsUsdValue - a.totalDonationsUsdValue
+      });
+      let raisedValueSum = 0;
+      for (const donation of result) {
+        raisedValueSum += donation.totalDonationsUsdValue;
+      }
+      const donationsWithShare = result.map(item => {
+        const share = item.totalDonationsUsdValue / raisedValueSum;
+        return {
+          giverAddress: item.giverAddress,
+          giverEmail: item.giverEmail,
+          giverName: item.giverName,
+          totalDonationsUsdValue: Number(item.totalDonationsUsdValue).toFixed(2),
+          niceTokens: Number(item.totalDonationsUsdValue) * Number(nicePerDollar).toFixed(2),
+          // share: Number(share.toFixed(8)),
+        }
+      }).filter(item => {
+        return item.share > 0
+      })
+
+
+      const response = {
+        raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
+        givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
+        niceShares: donationsWithShare,
+        purpleList: await getPurpleList(),
+      };
+      if (download === 'yes') {
+        const csv = parse(response.niceShares);
+        const fileName = `niceToken-report_${startDate}-${endDate}.csv`;
+        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+        res.setHeader('Content-type', 'application/json');
+        res.send(csv)
+      } else {
+        res.send(response)
+      }
+    } catch (e) {
+      console.log("error happened", e)
+      res.status(400).send({
+        message: e.message
+      })
+    }
+  })
+
 
 app.get(`/calculate-givback-retroactive`,
   async (req, res) => {
@@ -289,8 +362,52 @@ const getEligibleAndNonEligibleDonations = async (req, res, eligible = true) => 
   }
 }
 
+const getEligibleDonationsForNiceToken = async (req, res) => {
+  try {
+    const {endDate, startDate, download, justCountListed,  whitelistTokens,
+      projectSlugs, nicePerDollar} = req.query;
+    const tokens = whitelistTokens.split(',')
+    const slugs = projectSlugs.split(',')
+    const allDonations =await givethIoEligibleDonations(
+      {
+        beginDate: startDate,
+        whitelistTokens: tokens,
+        projectSlugs: slugs,
+        endDate,
+        eligible: true,
+        justCountListed: justCountListed === 'yes'
+      });
+    const donations =
+      allDonations.sort((a, b) => {
+        return b.createdAt >= a.createdAt ? 1 : -1
+      }).map(donation =>{
+        donation.niceTokens =  Number(donation.valueUsd) * Number(nicePerDollar).toFixed(2)
+        return donation
+      })
+
+
+    if (download === 'yes') {
+      const csv = parse(donations);
+      const fileName = `${eligible ? 'eligible-donations-for-nice-tokens' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
+      res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+      res.setHeader('Content-type', 'application/json');
+      res.send(csv)
+    } else {
+      res.send(donations)
+    }
+  } catch (e) {
+    console.log("error happened", e)
+    res.status(400).send({
+      message: e.message
+    })
+  }
+}
+
 app.get(`/eligible-donations`, async (req, res) => {
   await getEligibleAndNonEligibleDonations(req, res, true)
+})
+app.get(`/eligible-donations-for-nice-token`, async (req, res) => {
+  await getEligibleDonationsForNiceToken(req, res)
 })
 
 app.get(`/not-eligible-donations`, async (req, res) => {
