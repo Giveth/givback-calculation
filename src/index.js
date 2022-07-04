@@ -37,6 +37,7 @@ const { version } = require('../package.json');
 const app = express();
 
 swaggerDocument.info.version = version
+swaggerDocument.basePath = process.env.NODE_ENV === 'staging'? '/staging' :'/'
 const swaggerPrefix = process.env.NODE_ENV === 'staging'? '/staging' :''
 // https://stackoverflow.com/a/58052537/4650625
 app.use(`${swaggerPrefix}/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
