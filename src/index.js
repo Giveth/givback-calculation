@@ -1,6 +1,6 @@
 const dotenv = require('dotenv')
-if (process.env.NODE_ENV !== 'develop') {
-  // In develop env we use .env in docker-compose so we dont need dotenv package
+if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'staging' ) {
+  // In production and staging env we use .env in docker-compose so we dont need dotenv package
   dotenv.config()
 }
 
@@ -32,8 +32,11 @@ const {
 } = require('./givethIoService')
 const {getPurpleList} = require('./commonServices')
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
+const { version } = require('../package.json');
 
 const app = express();
+
+swaggerDocument.info.version = version
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get(`/calculate-givback`,

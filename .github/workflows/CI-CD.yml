@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
   publish:
-    if:  github.ref == 'refs/heads/master'
+    if:  github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -21,18 +21,28 @@ jobs:
           tag_with_ref: true
           # Add commit hash to docker image tag @see{@link https://github.com/docker/build-push-action/tree/releases/v1#tag_with_sha}
           tag_with_sha: true
-
   deploy:
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/master'
     needs: publish
     runs-on: ubuntu-latest
     steps:
-      - name: develop deploy
+      - name: production deploy
         if: github.ref == 'refs/heads/master'
         uses: garygrossgarten/github-action-ssh@v0.6.4
         with:
           # pull images, restart docker, then remove unused docker images
-          command: cd givback-calculation && git checkout master && git pull origin master && docker-compose -f docker-compose-develop.yml pull && docker-compose -f docker-compose-develop.yml down && docker-compose -f docker-compose-develop.yml up -d && docker image prune -a --force
+          command: cd givback-calculation && git checkout master && git pull origin master && docker-compose -f docker-compose-production.yml pull && docker-compose -f docker-compose-production.yml down && docker-compose -f docker-compose-production.yml up -d && docker image prune -a --force
+          host: ${{ secrets.DEVELOP_HOST }}
+          username: ${{ secrets.DEVELOP_USERNAME }}
+          #          passphrase: ${{ secrets.PASSPHRASE }}
+          privateKey: ${{ secrets.DEVELOP_PRIVATE_KEY}}
+
+      - name: staging deploy
+        if: github.ref == 'refs/heads/staging'
+        uses: garygrossgarten/github-action-ssh@v0.6.4
+        with:
+          # pull images, restart docker, then remove unused docker images
+          command: cd givback-calculation-staging && git checkout staging && git pull origin staging && docker-compose -f docker-compose-staging.yml pull && docker-compose -f docker-compose-develop.yml down && docker-compose -f docker-compose-staging.yml up -d && docker image prune -a --force
           host: ${{ secrets.DEVELOP_HOST }}
           username: ${{ secrets.DEVELOP_USERNAME }}
           #          passphrase: ${{ secrets.PASSPHRASE }}
