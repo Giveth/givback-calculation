@@ -37,7 +37,9 @@ const { version } = require('../package.json');
 const app = express();
 
 swaggerDocument.info.version = version
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+const swaggerPrefix = process.env.NODE_ENV === 'staging'? '/staging' :''
+// https://stackoverflow.com/a/58052537/4650625
+app.use(`${swaggerPrefix}/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get(`/calculate-givback`,
   async (req, res) => {
