@@ -186,7 +186,7 @@ app.get(`/calculate-nice-token`,
           giverName: item.giverName,
           totalDonationsUsdValue: Number(item.totalDonationsUsdValue).toFixed(2),
           niceTokens: Number(item.totalDonationsUsdValue) * Number(nicePerDollar).toFixed(2),
-          // share: Number(share.toFixed(8)),
+          share: Number(share.toFixed(8)),
         }
       }).filter(item => {
         return item.share > 0
@@ -368,7 +368,7 @@ const getEligibleAndNonEligibleDonations = async (req, res, eligible = true) => 
   }
 }
 
-const getEligibleDonationsForNiceToken = async (req, res) => {
+const getEligibleDonationsForNiceToken = async (req, res, eligible=true) => {
   try {
     const {endDate, startDate, download, justCountListed,  whitelistTokens,
       projectSlugs, nicePerDollar} = req.query;
