@@ -6,14 +6,14 @@ services:
 
     # is sometime you want to rollback you can change the tag manually in server( not commit to git)
     # from master to your desired commit hash and the run command:
-    # 1. docker-compose -f docker-compose-develop.yml pull
-    # 2. docker-compose -f docker-compose-develop.yml down
-    # 3. docker-compose -f docker-compose-develop.yml up -d
+    # 1. docker-compose -f docker-compose-production.yml pull
+    # 2. docker-compose -f docker-compose-production.yml down
+    # 3. docker-compose -f docker-compose-production.yml up -d
     image: ghcr.io/giveth/givback-calculation:latest
     env_file:
       - .env
     environment:
-      - NODE_ENV=develop
+      - NODE_ENV=production
 
     ports:
       - "3051:3000"

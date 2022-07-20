@@ -1,5 +1,8 @@
 {
   "swagger": "2.0",
+  "info": {
+    "version": ""
+  },
   "basePath": "/",
   "paths": {
     "/calculate-givback": {
@@ -45,6 +48,57 @@
             "name": "maxAddressesPerFunctionCall",
             "type": "string",
             "default": "200",
+            "in": "query"
+          },
+          {
+            "name": "download",
+            "type": "string",
+            "description": "If you want to see json here set no, but if you want to download a file set yes",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
+    },
+    "/calculate-nice-token": {
+      "get": {
+        "tags": ["NICE"],
+        "parameters": [
+          {
+            "name": "startDate",
+            "type": "string",
+            "default": "2022/01/14-16:00:00",
+            "in": "query"
+          },
+          {
+            "name": "endDate",
+            "type": "string",
+            "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+          {
+            "name": "nicePerDollar",
+            "type": "string",
+            "default": "1",
+            "in": "query"
+          },
+          {
+            "name": "whitelistTokens",
+            "type": "string",
+            "default": "DAI,WXDAI,XDAI",
+            "in": "query"
+          },
+          {
+            "name": "projectSlugs",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
             "in": "query"
           },
           {
@@ -170,6 +224,58 @@
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
             "enum": ["yes","no"],
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
+    },
+    "/eligible-donations-for-nice-token": {
+      "get": {
+        "description": "Return all donations to verifed projects/campaigns and purpleList addresses are excluded",
+        "tags": ["NICE"],
+        "parameters": [
+          {
+            "name": "startDate",
+            "type": "string",
+            "default": "2022/01/14-16:00:00",
+            "in": "query"
+          },
+          {
+            "name": "endDate",
+            "type": "string",
+            "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+          {
+            "name": "download",
+            "type": "string",
+            "description": "If you want to see json here set no, but if you want to download a file set yes",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
+          },
+          {
+            "name": "nicePerDollar",
+            "type": "string",
+            "default": "1",
+            "in": "query"
+          },
+          {
+            "name": "whitelistTokens",
+            "type": "string",
+            "default": "DAI,WXDAI,XDAI",
+            "in": "query"
+          },
+          {
+            "name": "projectSlugs",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
             "in": "query"
           }
         ],

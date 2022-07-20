@@ -18,6 +18,8 @@ const getEligibleDonations = async (
   {
     beginDate,
     endDate,
+    whitelistTokens = undefined,
+    projectSlugs = undefined,
     eligible = true,
     disablePurpleList = false,
     justCountListed = false
@@ -86,6 +88,32 @@ const getEligibleDonations = async (
           && donation.status === 'verified'
       )
 
+    if (whitelistTokens) {
+      donationsToVerifiedProjects = donationsToVerifiedProjects
+        .filter(
+          donation =>
+            whitelistTokens.includes(donation.currency))
+
+      donationsToNotVerifiedProjects = donationsToNotVerifiedProjects
+        .filter(
+          donation =>
+            whitelistTokens.includes(donation.currency)
+        )
+    }
+
+    if (projectSlugs) {
+      donationsToVerifiedProjects = donationsToVerifiedProjects
+        .filter(
+          donation =>
+            projectSlugs.includes(donation.project.slug))
+
+      donationsToNotVerifiedProjects = donationsToNotVerifiedProjects
+        .filter(
+          donation =>
+            projectSlugs.includes(donation.project.slug)
+        )
+    }
+
     if (justCountListed) {
       donationsToNotVerifiedProjects = donationsToNotVerifiedProjects
         .filter(
@@ -130,7 +158,7 @@ const getEligibleDonations = async (
       }
     });
     return eligible ?
-      await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects, disablePurpleList ) :
+      await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects, disablePurpleList) :
       (await purpleListDonations(formattedDonationsToVerifiedProjects, disablePurpleList)).concat(formattedDonationsToNotVerifiedProjects)
 
   } catch (e) {
@@ -230,9 +258,14 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
  * @param endDate:string, example: 2021/07/12-00:00:00
  * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
-const getDonationsReport = async (beginDate, endDate) => {
+const getDonationsReport = async (beginDate, endDate, whitelistTokens, projectSlugs) => {
   try {
-    const donations = await getEligibleDonations({beginDate, endDate})
+    const donations = await getEligibleDonations(
+      {
+        beginDate, endDate,
+        whitelistTokens,
+        projectSlugs
+      })
 
     const groups = _.groupBy(donations, 'giverAddress')
     return _.map(groups, function (value, key) {
