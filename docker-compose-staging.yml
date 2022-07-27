@@ -10,6 +10,7 @@ services:
     # 2. docker-compose -f docker-compose-staging.yml down
     # 3. docker-compose -f docker-compose-staging.yml up -d
     image: ghcr.io/giveth/givback-calculation:staging
+    restart: always
     env_file:
       - .env
     environment:
