@@ -86,19 +86,19 @@
           {
             "name": "nicePerDollar",
             "type": "string",
-            "default": "0.5",
+            "default": "1",
             "in": "query"
           },
           {
             "name": "whitelistTokens",
             "type": "string",
-            "default": "GIV,ETH,WETH",
+            "default": "DAI,WXDAI,XDAI",
             "in": "query"
           },
           {
             "name": "projectSlugs",
             "type": "string",
-            "default": "unchain-fund,the-giveth-community-of-makers,unchain-fund",
+            "default": "the-giveth-community-of-makers",
             "in": "query"
           },
           {
@@ -263,19 +263,19 @@
           {
             "name": "nicePerDollar",
             "type": "string",
-            "default": "0.5",
+            "default": "1",
             "in": "query"
           },
           {
             "name": "whitelistTokens",
             "type": "string",
-            "default": "GIV,ETH,WETH",
+            "default": "DAI,WXDAI,XDAI",
             "in": "query"
           },
           {
             "name": "projectSlugs",
             "type": "string",
-            "default": "unchain-fund,the-giveth-community-of-makers,unchain-fund",
+            "default": "the-giveth-community-of-makers",
             "in": "query"
           }
         ],
