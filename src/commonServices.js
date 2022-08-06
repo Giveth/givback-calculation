@@ -6,7 +6,7 @@ const configPurpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split
 const whiteListDonations = process.env.WHITELIST_DONATIONS ? process.env.WHITELIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 const blackListDonations = process.env.BLACKLIST_DONATIONS ? process.env.BLACKLIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 
-
+// Related to adminbro
 const getPurpleList = async () => {
   const query = gql`
         {
