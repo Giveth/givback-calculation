@@ -3,7 +3,7 @@ const Web3 = require('web3');
 const {pinJSONToIPFS} = require("./pinataUtils");
 const {hexlify, solidityKeccak256} = ethers.utils;
 
-
+// check variables always
 const createSmartContractCallAddBatchParams = async ({
                                                        nrGIVAddress,
                                                        donationsWithShare,
