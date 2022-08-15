@@ -258,7 +258,7 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
  * @param endDate:string, example: 2021/07/12-00:00:00
  * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
-const getDonationsReport = async (beginDate, endDate, whitelistTokens, projectSlugs) => {
+const getDonationsReport = async (beginDate, endDate, whitelistTokens=undefined, projectSlugs=undefined) => {
   try {
     const donations = await getEligibleDonations(
       {

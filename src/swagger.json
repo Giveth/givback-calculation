@@ -5,6 +5,87 @@
   },
   "basePath": "/",
   "paths": {
+    "/calculate": {
+      "get": {
+        "description": "It return both givback and NICE results",
+        "parameters": [
+          {
+            "name": "startDate",
+            "type": "string",
+            "default": "2022/01/14-16:00:00",
+            "in": "query"
+          },
+          {
+            "name": "endDate",
+            "type": "string",
+            "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+          {
+            "name": "givPrice",
+            "type": "string",
+            "default": "1",
+            "in": "query"
+          },
+          {
+            "name": "givAvailable",
+            "type": "string",
+            "default": "1000000",
+            "in": "query"
+          },
+          {
+            "name": "givMaxFactor",
+            "type": "string",
+            "default": "0.75",
+            "in": "query"
+          },
+          {
+            "name": "relayerAddress",
+            "type": "string",
+            "default": "0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7",
+            "in": "query"
+          },
+          {
+            "name": "maxAddressesPerFunctionCall",
+            "type": "string",
+            "default": "200",
+            "in": "query"
+          },
+          {
+            "name": "nicePerDollar",
+            "type": "string",
+            "default": "1",
+            "in": "query"
+          },
+          {
+            "name": "whitelistTokens",
+            "type": "string",
+            "default": "DAI,WXDAI,XDAI",
+            "in": "query"
+          },
+          {
+            "name": "projectSlugs",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
+            "in": "query"
+          },
+          {
+            "name": "download",
+            "type": "string",
+            "description": "If you want to see json here set no, but if you want to download a file set yes",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
+    },
     "/calculate-givback": {
       "get": {
         "parameters": [
