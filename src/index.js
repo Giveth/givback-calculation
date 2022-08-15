@@ -42,15 +42,59 @@ const swaggerPrefix = process.env.NODE_ENV === 'staging'? '/staging' :''
 // https://stackoverflow.com/a/58052537/4650625
 app.use(`${swaggerPrefix}/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.get(`/calculate-givback`,
+app.get(`/calculate`,
   async (req, res) => {
     try {
       console.log('start calculating')
       const {
         download, endDate, startDate,
         maxAddressesPerFunctionCall,
-        relayerAddress
+        relayerAddress,
+        whitelistTokens,
+        projectSlugs, nicePerDollar
       } = req.query;
+      const tokens = whitelistTokens.split(',')
+      const slugs = projectSlugs.split(',')
+
+      const givethDonationsForNice = await givethIoDonations(startDate, endDate, tokens, slugs)
+
+      const givethioDonationsAmountForNice = givethDonationsForNice.reduce((previousValue, currentValue) => {
+        return previousValue + currentValue.totalDonationsUsdValue
+      }, 0);
+      const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
+      const allNiceDonations = _.map(niceDonationsGroupByGiverAddress, (value, key) => {
+        return {
+          giverAddress: key.toLowerCase(),
+          giverEmail: value[0].giverEmail,
+          giverName: value[0].giverName,
+          totalDonationsUsdValue: _.reduce(value, (total, o) => {
+            return total + o.totalDonationsUsdValue;
+          }, 0)
+        };
+      });
+      const allNiceDonationsSorted = allNiceDonations.sort((a, b) => {
+        return b.totalDonationsUsdValue - a.totalDonationsUsdValue
+      });
+      let raisedValueForGivethioDonationsSum = 0;
+      for (const donation of allNiceDonationsSorted) {
+        raisedValueForGivethioDonationsSum += donation.totalDonationsUsdValue;
+      }
+      const niceDonationsWithShare = allNiceDonationsSorted.map(item => {
+        const share = item.totalDonationsUsdValue / raisedValueForGivethioDonationsSum;
+        return {
+          giverAddress: item.giverAddress,
+          giverEmail: item.giverEmail,
+          giverName: item.giverName,
+          totalDonationsUsdValue: Number(item.totalDonationsUsdValue).toFixed(2),
+          niceTokens: Number(item.totalDonationsUsdValue) * Number(nicePerDollar).toFixed(2),
+          share: Number(share.toFixed(8)),
+        }
+      }).filter(item => {
+        return item.share > 0
+      })
+
+
+
       const givPrice = Number(req.query.givPrice)
       const givAvailable = Number(req.query.givAvailable)
       const givWorth = givAvailable * givPrice
@@ -88,6 +132,7 @@ app.get(`/calculate-givback`,
       const donationsWithShare = result.map(item => {
         const share = item.totalDonationsUsdValue / raisedValueSum;
         const givback = (item.totalDonationsUsdValue / givPrice) * givFactor;
+        const niceShare = niceDonationsWithShare.find(niceShareItem => niceShareItem.giverAddress === item.giverAddress)
         return {
           giverAddress: item.giverAddress,
           giverEmail: item.giverEmail,
@@ -96,6 +141,7 @@ app.get(`/calculate-givback`,
           givback: Number(givback.toFixed(2)),
           givbackUsdValue: (givback * givPrice).toFixed(2),
           share: Number(share.toFixed(8)),
+          niceEarned: niceShare ? niceShare.niceTokens : 0
         }
       }).filter(item => {
         return item.share > 0
@@ -108,6 +154,9 @@ app.get(`/calculate-givback`,
         },
         Number(maxAddressesPerFunctionCall) || 200
       );
+
+
+
       const response = {
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed: Math.ceil(givDistributed),
@@ -116,6 +165,9 @@ app.get(`/calculate-givback`,
         givFactor: Number(givFactor.toFixed(4)),
         ...smartContractCallParams,
         givbacks: donationsWithShare,
+          // niceRaisedValueSumExcludedPurpleList: Math.ceil(raisedValueForGivethioDonationsSum),
+          // niceGivethioDonationsAmountForNice: Math.ceil(givethioDonationsAmountForNice),
+          // niceShares: niceDonationsWithShare,
         purpleList: await getPurpleList(),
       };
       if (download === 'yes') {
@@ -142,80 +194,6 @@ app.get(`/calculate-givback`,
       })
     }
   })
-
-app.get(`/calculate-nice-token`,
-  async (req, res) => {
-    try {
-      console.log('start calculating')
-      const {
-        download, endDate, startDate,
-        whitelistTokens,
-        projectSlugs, nicePerDollar
-      } = req.query;
-      const tokens = whitelistTokens.split(',')
-      const slugs = projectSlugs.split(',')
-
-      const givethDonations = await givethIoDonations(startDate, endDate, tokens, slugs)
-
-      const givethioDonationsAmount = givethDonations.reduce((previousValue, currentValue) => {
-        return previousValue + currentValue.totalDonationsUsdValue
-      }, 0);
-      const groupByGiverAddress = _.groupBy(givethDonations, 'giverAddress')
-      const allDonations = _.map(groupByGiverAddress, (value, key) => {
-        return {
-          giverAddress: key.toLowerCase(),
-          giverEmail: value[0].giverEmail,
-          giverName: value[0].giverName,
-          totalDonationsUsdValue: _.reduce(value, (total, o) => {
-            return total + o.totalDonationsUsdValue;
-          }, 0)
-        };
-      });
-      const result = allDonations.sort((a, b) => {
-        return b.totalDonationsUsdValue - a.totalDonationsUsdValue
-      });
-      let raisedValueSum = 0;
-      for (const donation of result) {
-        raisedValueSum += donation.totalDonationsUsdValue;
-      }
-      const donationsWithShare = result.map(item => {
-        const share = item.totalDonationsUsdValue / raisedValueSum;
-        return {
-          giverAddress: item.giverAddress,
-          giverEmail: item.giverEmail,
-          giverName: item.giverName,
-          totalDonationsUsdValue: Number(item.totalDonationsUsdValue).toFixed(2),
-          niceTokens: Number(item.totalDonationsUsdValue) * Number(nicePerDollar).toFixed(2),
-          share: Number(share.toFixed(8)),
-        }
-      }).filter(item => {
-        return item.share > 0
-      })
-
-
-      const response = {
-        raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
-        givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
-        niceShares: donationsWithShare,
-        purpleList: await getPurpleList(),
-      };
-      if (download === 'yes') {
-        const csv = parse(response.niceShares);
-        const fileName = `niceToken-report_${startDate}-${endDate}.csv`;
-        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-        res.setHeader('Content-type', 'application/json');
-        res.send(csv)
-      } else {
-        res.send(response)
-      }
-    } catch (e) {
-      console.log("error happened", e)
-      res.status(400).send({
-        message: e.message
-      })
-    }
-  })
-
 
 app.get(`/calculate-givback-retroactive`,
   async (req, res) => {

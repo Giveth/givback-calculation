@@ -5,8 +5,9 @@
   },
   "basePath": "/",
   "paths": {
-    "/calculate-givback": {
+    "/calculate": {
       "get": {
+        "description": "It return both givback and NICE results",
         "parameters": [
           {
             "name": "startDate",
@@ -48,39 +49,6 @@
             "name": "maxAddressesPerFunctionCall",
             "type": "string",
             "default": "200",
-            "in": "query"
-          },
-          {
-            "name": "download",
-            "type": "string",
-            "description": "If you want to see json here set no, but if you want to download a file set yes",
-            "default": "no",
-            "enum": ["yes","no"],
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-
-        }
-      }
-    },
-    "/calculate-nice-token": {
-      "get": {
-        "tags": ["NICE"],
-        "parameters": [
-          {
-            "name": "startDate",
-            "type": "string",
-            "default": "2022/01/14-16:00:00",
-            "in": "query"
-          },
-          {
-            "name": "endDate",
-            "type": "string",
-            "default": "2022/01/21-15:59:59",
             "in": "query"
           },
           {
