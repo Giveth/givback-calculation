@@ -18,8 +18,8 @@ const getEligibleDonations = async (
   {
     beginDate,
     endDate,
-    whitelistTokens = undefined,
-    projectSlugs = undefined,
+    niceWhitelistTokens = undefined,
+    niceProjectSlugs = undefined,
     eligible = true,
     disablePurpleList = false,
     justCountListed = false
@@ -88,29 +88,29 @@ const getEligibleDonations = async (
           && donation.status === 'verified'
       )
 
-    if (whitelistTokens) {
+    if (niceWhitelistTokens) {
       donationsToVerifiedProjects = donationsToVerifiedProjects
         .filter(
           donation =>
-            whitelistTokens.includes(donation.currency))
+            niceWhitelistTokens.includes(donation.currency))
 
       donationsToNotVerifiedProjects = donationsToNotVerifiedProjects
         .filter(
           donation =>
-            whitelistTokens.includes(donation.currency)
+            niceWhitelistTokens.includes(donation.currency)
         )
     }
 
-    if (projectSlugs) {
+    if (niceProjectSlugs) {
       donationsToVerifiedProjects = donationsToVerifiedProjects
         .filter(
           donation =>
-            projectSlugs.includes(donation.project.slug))
+            niceProjectSlugs.includes(donation.project.slug))
 
       donationsToNotVerifiedProjects = donationsToNotVerifiedProjects
         .filter(
           donation =>
-            projectSlugs.includes(donation.project.slug)
+            niceProjectSlugs.includes(donation.project.slug)
         )
     }
 
@@ -258,13 +258,13 @@ const getVerifiedPurpleListDonations = async (beginDate, endDate) => {
  * @param endDate:string, example: 2021/07/12-00:00:00
  * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
-const getDonationsReport = async (beginDate, endDate, whitelistTokens=undefined, projectSlugs=undefined) => {
+const getDonationsReport = async (beginDate, endDate, niceWhitelistTokens=undefined, niceProjectSlugs=undefined) => {
   try {
     const donations = await getEligibleDonations(
       {
         beginDate, endDate,
-        whitelistTokens,
-        projectSlugs
+        niceWhitelistTokens,
+        niceProjectSlugs
       })
 
     const groups = _.groupBy(donations, 'giverAddress')

@@ -49,12 +49,12 @@ app.get(`/calculate`,
       const {
         download, endDate, startDate,
         maxAddressesPerFunctionCall,
-        relayerAddress,
-        whitelistTokens,
-        projectSlugs, nicePerDollar
+        givRelayerAddress,
+        niceWhitelistTokens,
+        niceProjectSlugs, nicePerDollar
       } = req.query;
-      const tokens = whitelistTokens.split(',')
-      const slugs = projectSlugs.split(',')
+      const tokens = niceWhitelistTokens.split(',')
+      const slugs = niceProjectSlugs.split(',')
 
       const givethDonationsForNice = await givethIoDonations(startDate, endDate, tokens, slugs)
 
@@ -150,7 +150,7 @@ app.get(`/calculate`,
         {
            nrGIVAddress,
           donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0),
-          relayerAddress
+          givRelayerAddress
         },
         Number(maxAddressesPerFunctionCall) || 200
       );
@@ -204,7 +204,7 @@ app.get(`/calculate-givback-retroactive`,
         distributorAddress, tokenDistroAddress,
         maxAddressesPerFunctionCall,
         eligible, toGiveth, justCountListed,
-        relayerAddress
+        givRelayerAddress
       } = req.query;
       const givPrice = Number(req.query.givPrice)
       const givAvailable = Number(req.query.givAvailable)
@@ -269,7 +269,7 @@ app.get(`/calculate-givback-retroactive`,
         {
           distributorAddress, nrGIVAddress, tokenDistroAddress,
           donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0),
-          relayerAddress
+          givRelayerAddress
         },
         Number(maxAddressesPerFunctionCall) || 200
       );
@@ -348,15 +348,15 @@ const getEligibleAndNonEligibleDonations = async (req, res, eligible = true) => 
 
 const getEligibleDonationsForNiceToken = async (req, res, eligible=true) => {
   try {
-    const {endDate, startDate, download, justCountListed,  whitelistTokens,
-      projectSlugs, nicePerDollar} = req.query;
-    const tokens = whitelistTokens.split(',')
-    const slugs = projectSlugs.split(',')
+    const {endDate, startDate, download, justCountListed,  niceWhitelistTokens,
+      niceProjectSlugs, nicePerDollar} = req.query;
+    const tokens = niceWhitelistTokens.split(',')
+    const slugs = niceProjectSlugs.split(',')
     const allDonations =await givethIoEligibleDonations(
       {
         beginDate: startDate,
-        whitelistTokens: tokens,
-        projectSlugs: slugs,
+        niceWhitelistTokens: tokens,
+        niceProjectSlugs: slugs,
         endDate,
         eligible: true,
         justCountListed: justCountListed === 'yes'

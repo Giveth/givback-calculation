@@ -40,7 +40,7 @@
             "in": "query"
           },
           {
-            "name": "relayerAddress",
+            "name": "givRelayerAddress",
             "type": "string",
             "default": "0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7",
             "in": "query"
@@ -58,13 +58,13 @@
             "in": "query"
           },
           {
-            "name": "whitelistTokens",
+            "name": "niceWhitelistTokens",
             "type": "string",
             "default": "DAI,WXDAI,XDAI",
             "in": "query"
           },
           {
-            "name": "projectSlugs",
+            "name": "niceProjectSlugs",
             "type": "string",
             "default": "the-giveth-community-of-makers",
             "in": "query"
@@ -121,7 +121,7 @@
             "in": "query"
           },
           {
-            "name": "relayerAddress",
+            "name": "givRelayerAddress",
             "type": "string",
             "default": "0xCa60c66a8C3449047c213295eCd82C80B1529a10",
             "in": "query"
@@ -235,13 +235,13 @@
             "in": "query"
           },
           {
-            "name": "whitelistTokens",
+            "name": "niceWhitelistTokens",
             "type": "string",
             "default": "DAI,WXDAI,XDAI",
             "in": "query"
           },
           {
-            "name": "projectSlugs",
+            "name": "niceProjectSlugs",
             "type": "string",
             "default": "the-giveth-community-of-makers",
             "in": "query"
