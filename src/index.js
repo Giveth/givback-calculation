@@ -144,8 +144,25 @@ app.get(`/calculate`,
           niceEarned: niceShare ? niceShare.niceTokens : 0
         }
       }).filter(item => {
-        return item.share > 0
+        return item.share > 0 || item.niceEarned >0
       })
+
+      for (const niceShareItem of niceDonationsWithShare){
+        // because purpleLists are not in donationsWithShare so we have to put a loop to include them
+        if (donationsWithShare.find(donationShare => donationShare.giverAddress === niceShareItem.giverAddress)){
+          continue;
+        }
+        donationsWithShare.push({
+          giverAddress: niceShareItem.giverAddress,
+          giverEmail: niceShareItem.giverEmail,
+          giverName: niceShareItem.giverName,
+          totalDonationsUsdValue: niceShareItem.totalDonationsUsdValue,
+          givback: 0,
+          givbackUsdValue: 0,
+          share: 0,
+          niceEarned: niceShareItem.niceTokens
+        })
+      }
       const smartContractCallParams =  await createSmartContractCallAddBatchParams(
         {
            nrGIVAddress,

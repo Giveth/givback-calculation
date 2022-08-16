@@ -264,7 +264,8 @@ const getDonationsReport = async (beginDate, endDate, niceWhitelistTokens=undefi
       {
         beginDate, endDate,
         niceWhitelistTokens,
-        niceProjectSlugs
+        niceProjectSlugs,
+        disablePurpleList: Boolean(niceWhitelistTokens)
       })
 
     const groups = _.groupBy(donations, 'giverAddress')
