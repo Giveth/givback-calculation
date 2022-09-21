@@ -7,15 +7,15 @@ const {hexlify, solidityKeccak256} = ethers.utils;
 const createSmartContractCallAddBatchParams = async ({
                                                        nrGIVAddress,
                                                        donationsWithShare,
-                                                       relayerAddress
+                                                       givRelayerAddress
                                                      }, maxAddressesPerFunctionCall) => {
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
-  let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${relayerAddress} `;
+  let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${givRelayerAddress} `;
   result += 'addBatches(bytes32[],bytes) ['
   const hashParams = {
     ipfsLink:''
   }
-  let nonce = await getLastNonceForWalletAddress(relayerAddress)
+  let nonce = await getLastNonceForWalletAddress(givRelayerAddress)
   const rawDatasForHash  = []
   for (let i = 0; i < partNumbers; i++) {
     if (i !== 0){

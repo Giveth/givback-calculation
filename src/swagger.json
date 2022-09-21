@@ -5,8 +5,9 @@
   },
   "basePath": "/",
   "paths": {
-    "/calculate-givback": {
+    "/calculate": {
       "get": {
+        "description": "It return both givback and NICE results",
         "parameters": [
           {
             "name": "startDate",
@@ -39,7 +40,7 @@
             "in": "query"
           },
           {
-            "name": "relayerAddress",
+            "name": "givRelayerAddress",
             "type": "string",
             "default": "0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7",
             "in": "query"
@@ -51,52 +52,19 @@
             "in": "query"
           },
           {
-            "name": "download",
-            "type": "string",
-            "description": "If you want to see json here set no, but if you want to download a file set yes",
-            "default": "no",
-            "enum": ["yes","no"],
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-
-        }
-      }
-    },
-    "/calculate-nice-token": {
-      "get": {
-        "tags": ["NICE"],
-        "parameters": [
-          {
-            "name": "startDate",
-            "type": "string",
-            "default": "2022/01/14-16:00:00",
-            "in": "query"
-          },
-          {
-            "name": "endDate",
-            "type": "string",
-            "default": "2022/01/21-15:59:59",
-            "in": "query"
-          },
-          {
             "name": "nicePerDollar",
             "type": "string",
             "default": "1",
             "in": "query"
           },
           {
-            "name": "whitelistTokens",
+            "name": "niceWhitelistTokens",
             "type": "string",
             "default": "DAI,WXDAI,XDAI",
             "in": "query"
           },
           {
-            "name": "projectSlugs",
+            "name": "niceProjectSlugs",
             "type": "string",
             "default": "the-giveth-community-of-makers",
             "in": "query"
@@ -153,7 +121,7 @@
             "in": "query"
           },
           {
-            "name": "relayerAddress",
+            "name": "givRelayerAddress",
             "type": "string",
             "default": "0xCa60c66a8C3449047c213295eCd82C80B1529a10",
             "in": "query"
@@ -267,13 +235,13 @@
             "in": "query"
           },
           {
-            "name": "whitelistTokens",
+            "name": "niceWhitelistTokens",
             "type": "string",
             "default": "DAI,WXDAI,XDAI",
             "in": "query"
           },
           {
-            "name": "projectSlugs",
+            "name": "niceProjectSlugs",
             "type": "string",
             "default": "the-giveth-community-of-makers",
             "in": "query"
