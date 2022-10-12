@@ -15,7 +15,7 @@ const getPurpleList = async () => {
     `;
 
   const result = await request(`${givethiobaseurl}/graphql`, query)
-  const purpleList = result.getProjectsRecipients.map(address => address.toLowerCase()).concat(configPurpleList)
+  const purpleList = result.getPurpleList.map(address => address.toLowerCase()).concat(configPurpleList)
   return [...new Set(purpleList)]
 }
 
