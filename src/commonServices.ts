@@ -8,16 +8,16 @@ const configPurpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split
 const whiteListDonations = process.env.WHITELIST_DONATIONS ? process.env.WHITELIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 const blackListDonations = process.env.BLACKLIST_DONATIONS ? process.env.BLACKLIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 
-
+// Related to adminbro
 export const getPurpleList = async ():Promise<string[]> => {
   const query = gql`
         {
-          getProjectsRecipients 
+          getPurpleList
         }
     `;
 
   const result = await request(`${givethiobaseurl}/graphql`, query)
-  const purpleList = result.getProjectsRecipients.map((address :string)=> address.toLowerCase()).concat(configPurpleList)
+  const purpleList = result.getPurpleList.map((address :string)=> address.toLowerCase()).concat(configPurpleList)
   return [...new Set(purpleList)] as string[]
 }
 

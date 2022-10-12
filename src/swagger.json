@@ -60,7 +60,7 @@
           {
             "name": "niceWhitelistTokens",
             "type": "string",
-            "default": "DAI,WXDAI,XDAI",
+            "default": "DAI,WXDAI,XDAI,USDC",
             "in": "query"
           },
           {
