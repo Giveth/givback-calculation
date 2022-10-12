@@ -10,7 +10,7 @@ const blackListDonations = process.env.BLACKLIST_DONATIONS ? process.env.BLACKLI
 const getPurpleList = async () => {
   const query = gql`
         {
-          getProjectsRecipients 
+          getPurpleList
         }
     `;
 
