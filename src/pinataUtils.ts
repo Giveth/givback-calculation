@@ -1,10 +1,11 @@
 const axios = require('axios');
 const pinataApiKey = process.env.PINATA_API_KEY;
 const pinataSecretApiKey = process.env.PINATA_SECRET_API_KEY
-const pinJSONToIPFS = async ({
-                               jsonBody
-                             }) => {
+export const pinJSONToIPFS = async (params :{
+                               jsonBody:any
+                             }) :Promise<string> => {
   const url = `https://api.pinata.cloud/pinning/pinJSONToIPFS`;
+  const {jsonBody} = params
   try {
     console.log('pinJSONToIPFS has been called')
     const result = await axios
@@ -21,6 +22,4 @@ const pinJSONToIPFS = async ({
     throw e
   }
 };
-module.exports = {
-  pinJSONToIPFS
-}
+

@@ -1,4 +1,6 @@
 // List of peoples who should not give givbacks
+import {FormattedDonation} from "./types/general";
+
 const {gql, request} = require("graphql-request");
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
 
@@ -7,7 +9,7 @@ const whiteListDonations = process.env.WHITELIST_DONATIONS ? process.env.WHITELI
 const blackListDonations = process.env.BLACKLIST_DONATIONS ? process.env.BLACKLIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 
 // Related to adminbro
-const getPurpleList = async () => {
+export const getPurpleList = async ():Promise<string[]> => {
   const query = gql`
         {
           getPurpleList
@@ -15,12 +17,12 @@ const getPurpleList = async () => {
     `;
 
   const result = await request(`${givethiobaseurl}/graphql`, query)
-  const purpleList = result.getPurpleList.map(address => address.toLowerCase()).concat(configPurpleList)
-  return [...new Set(purpleList)]
+  const purpleList = result.getPurpleList.map((address :string)=> address.toLowerCase()).concat(configPurpleList)
+  return [...new Set(purpleList)] as string[]
 }
 
 
-const filterDonationsWithPurpleList = async (donations, disablePurpleList = false) =>{
+export const filterDonationsWithPurpleList = async (donations:FormattedDonation[], disablePurpleList = false)  :Promise<FormattedDonation[]>=>{
   const purpleList = disablePurpleList ? [] : await getPurpleList()
   return donations.filter(item => {
     const isGiverPurpleList = purpleList.includes(item.giverAddress.toLowerCase())
@@ -38,16 +40,10 @@ const filterDonationsWithPurpleList = async (donations, disablePurpleList = fals
 }
 
 
-const purpleListDonations = async (donations, disablePurpleList = false) =>{
+export const purpleListDonations = async (donations:FormattedDonation[], disablePurpleList = false):Promise<FormattedDonation[]> =>{
   const purpleList = disablePurpleList ? [] : await getPurpleList()
   return donations.filter(item => {
     return purpleList.includes(item.giverAddress.toLowerCase())
   })
 }
 
-
-module.exports = {
-  filterDonationsWithPurpleList,
-  purpleListDonations,
-  getPurpleList
-}
