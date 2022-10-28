@@ -211,13 +211,13 @@
           {
             "name": "startDate",
             "type": "string",
-            "default": "2022/01/14-16:00:00",
+            "default": "2022/07/22-16:00:00",
             "in": "query"
           },
           {
             "name": "endDate",
             "type": "string",
-            "default": "2022/01/21-15:59:59",
+            "default": "2022/10/18-15:59:59",
             "in": "query"
           },
           {
@@ -237,7 +237,7 @@
           {
             "name": "niceWhitelistTokens",
             "type": "string",
-            "default": "DAI,WXDAI,XDAI",
+            "default": "DAI,WXDAI,XDAI,USDC",
             "in": "query"
           },
           {
