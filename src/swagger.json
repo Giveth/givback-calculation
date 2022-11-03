@@ -34,9 +34,15 @@
             "in": "query"
           },
           {
-            "name": "givMaxFactor",
+            "name": "minGivFactor",
             "type": "string",
-            "default": "0.75",
+            "default": "0.5",
+            "in": "query"
+          },
+          {
+            "name": "maxGivFactor",
+            "type": "string",
+            "default": "0.8",
             "in": "query"
           },
           {
@@ -67,90 +73,6 @@
             "name": "niceProjectSlugs",
             "type": "string",
             "default": "the-giveth-community-of-makers",
-            "in": "query"
-          },
-          {
-            "name": "download",
-            "type": "string",
-            "description": "If you want to see json here set no, but if you want to download a file set yes",
-            "default": "no",
-            "enum": ["yes","no"],
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-
-        }
-      }
-    },
-    "/calculate-givback-retroactive": {
-      "get": {
-        "description": "WARNING: this web service is just for retroactive givbacks",
-        "parameters": [
-          {
-            "name": "startDate",
-            "type": "string",
-            "default": "2021/02/28-17:59:59",
-            "in": "query"
-          },
-          {
-            "name": "endDate",
-            "type": "string",
-            "default": "2021/12/24-16:00:00",
-            "in": "query"
-          },
-          {
-            "name": "givPrice",
-            "type": "string",
-            "default": "1",
-            "in": "query"
-          },
-          {
-            "name": "givAvailable",
-            "type": "string",
-            "default": "1000000",
-            "in": "query"
-          },
-          {
-            "name": "givMaxFactor",
-            "type": "string",
-            "default": "0.75",
-            "in": "query"
-          },
-          {
-            "name": "givRelayerAddress",
-            "type": "string",
-            "default": "0xCa60c66a8C3449047c213295eCd82C80B1529a10",
-            "in": "query"
-          },
-          {
-            "name": "maxAddressesPerFunctionCall",
-            "type": "string",
-            "default": "200",
-            "in": "query"
-          },
-          {
-            "name": "eligible",
-            "type": "string",
-            "default": "yes",
-            "enum": ["yes","no"],
-            "in": "query"
-          },
-          {
-            "name": "toGiveth",
-            "type": "string",
-            "default": "no",
-            "enum": ["yes","no"],
-            "in": "query"
-          },
-          {
-            "name": "justCountListed",
-            "type": "string",
-            "default": "no",
-            "enum": ["yes","no"],
             "in": "query"
           },
           {
@@ -318,36 +240,6 @@
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
             "enum": ["yes","no"],
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-
-        }
-      }
-    },
-    "/donations-leaderboard": {
-      "get": {
-        "parameters": [
-          {
-            "name": "startDate",
-            "type": "string",
-            "default": "2021/09/01-00:00:00",
-            "in": "query"
-          },
-          {
-            "name": "endDate",
-            "type": "string",
-            "default": "2021/12/31-00:00:00",
-            "in": "query"
-          },
-          {
-            "name": "total",
-            "type": "number",
-            "default": "10",
             "in": "query"
           }
         ],
