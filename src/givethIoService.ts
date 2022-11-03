@@ -1,10 +1,10 @@
-import {FormattedDonation, GivethIoDonation, MinimalDonation} from "./types/general";
+import {FormattedDonation, GivbackFactorParams, GivethIoDonation, MinimalDonation} from "./types/general";
 
 const {gql, request} = require('graphql-request');
 const moment = require('moment')
 const _ = require('underscore')
 
-import {filterDonationsWithPurpleList, purpleListDonations} from './commonServices'
+import {donationValueAfterGivFactor, filterDonationsWithPurpleList, purpleListDonations} from './commonServices'
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
 
@@ -66,6 +66,9 @@ export const getEligibleDonations = async (
               slug
               verified
               listed
+              projectPower {
+                powerRank
+              }
             }
             user {
               name
@@ -142,6 +145,7 @@ export const getEligibleDonations = async (
                 currency: item.currency,
                 createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
                 valueUsd: item.valueUsd,
+                powerRank: item.project.projectPower.powerRank,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
                 network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
@@ -159,6 +163,7 @@ export const getEligibleDonations = async (
                 createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
                 valueUsd: item.valueUsd,
                 giverAddress: item.fromWalletAddress,
+                powerRank: item.project.projectPower.powerRank,
                 txHash: item.transactionId,
                 network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
                 source: 'giveth.io',
@@ -266,12 +271,16 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
  *
  * @param beginDate:string, example: 2021/07/01-00:00:00
  * @param endDate:string, example: 2021/07/12-00:00:00
+ * @param givbackFactorParams
  * @param niceWhitelistTokens
  * @param niceProjectSlugs
  * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
  */
-export const getDonationsReport = async (beginDate: string, endDate: string,
-                                         niceWhitelistTokens ?: string[], niceProjectSlugs ?: string[]): Promise<MinimalDonation[]> => {
+export const getDonationsReport = async (beginDate: string,
+                                         endDate: string,
+                                         givbackFactorParams: GivbackFactorParams,
+                                         niceWhitelistTokens ?: string[],
+                                         niceProjectSlugs ?: string[]): Promise<MinimalDonation[]> => {
     try {
         const donations = await getEligibleDonations(
             {
@@ -289,7 +298,14 @@ export const getDonationsReport = async (beginDate: string, endDate: string,
                 giverAddress: key.toLowerCase(),
                 totalDonationsUsdValue: _.reduce(value, function (total: number, o: FormattedDonation) {
                     return total + o.valueUsd;
-                }, 0)
+                }, 0),
+                totalDonationsUsdValueAfterGivFactor: _.reduce(value, function (total: number, o: FormattedDonation) {
+                    return total  + donationValueAfterGivFactor({
+                        usdValue: Number(o.valueUsd),
+                        powerRank: o.powerRank,
+                        givbackFactorParams
+                    });
+                }, 0),
             };
         });
 
@@ -347,3 +363,19 @@ export const getDonationsReportRetroactive = async (beginDate: string, endDate: 
     }
 }
 
+
+export const getTopPowerRank = async () : Promise<number> =>{
+    const query = gql`
+        query {
+        getTopPowerRank
+        }
+    `;
+
+    try {
+        const result = await request(`${givethiobaseurl}/graphql`, query)
+        return result.getTopPowerRank
+    } catch (e) {
+        console.log('getTopPowerRank error', e)
+        throw new Error('Error in getting getTopPowerRank from impact-graph')
+    }
+}

@@ -1,5 +1,5 @@
 // List of peoples who should not give givbacks
-import {FormattedDonation} from "./types/general";
+import {FormattedDonation, GivbackFactorParams} from "./types/general";
 
 const {gql, request} = require("graphql-request");
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
@@ -8,42 +8,56 @@ const configPurpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split
 const whiteListDonations = process.env.WHITELIST_DONATIONS ? process.env.WHITELIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 const blackListDonations = process.env.BLACKLIST_DONATIONS ? process.env.BLACKLIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 
-// Related to adminbro
-export const getPurpleList = async ():Promise<string[]> => {
-  const query = gql`
+// Related to admin bro
+export const getPurpleList = async (): Promise<string[]> => {
+    const query = gql`
         {
           getPurpleList
         }
     `;
 
-  const result = await request(`${givethiobaseurl}/graphql`, query)
-  const purpleList = result.getPurpleList.map((address :string)=> address.toLowerCase()).concat(configPurpleList)
-  return [...new Set(purpleList)] as string[]
+    const result = await request(`${givethiobaseurl}/graphql`, query)
+    const purpleList = result.getPurpleList.map((address: string) => address.toLowerCase()).concat(configPurpleList)
+    return [...new Set(purpleList)] as string[]
 }
 
 
-export const filterDonationsWithPurpleList = async (donations:FormattedDonation[], disablePurpleList = false)  :Promise<FormattedDonation[]>=>{
-  const purpleList = disablePurpleList ? [] : await getPurpleList()
-  return donations.filter(item => {
-    const isGiverPurpleList = purpleList.includes(item.giverAddress.toLowerCase())
-    const isDonationWhitelisted = whiteListDonations.includes(item.txHash.toLowerCase())
-    const isDonationBlacklisted = blackListDonations.includes(item.txHash.toLowerCase())
-    if (isDonationWhitelisted){
-      // It's important to check whitelist before purpleList
-      return true
-    }
-    if (isDonationBlacklisted || isGiverPurpleList){
-      return false;
-    }
-    return true
-  })
+export const filterDonationsWithPurpleList = async (donations: FormattedDonation[], disablePurpleList = false): Promise<FormattedDonation[]> => {
+    const purpleList = disablePurpleList ? [] : await getPurpleList()
+    return donations.filter(item => {
+        const isGiverPurpleList = purpleList.includes(item.giverAddress.toLowerCase())
+        const isDonationWhitelisted = whiteListDonations.includes(item.txHash.toLowerCase())
+        const isDonationBlacklisted = blackListDonations.includes(item.txHash.toLowerCase())
+        if (isDonationWhitelisted) {
+            // It's important to check whitelist before purpleList
+            return true
+        }
+        if (isDonationBlacklisted || isGiverPurpleList) {
+            return false;
+        }
+        return true
+    })
 }
 
 
-export const purpleListDonations = async (donations:FormattedDonation[], disablePurpleList = false):Promise<FormattedDonation[]> =>{
-  const purpleList = disablePurpleList ? [] : await getPurpleList()
-  return donations.filter(item => {
-    return purpleList.includes(item.giverAddress.toLowerCase())
-  })
+export const purpleListDonations = async (donations: FormattedDonation[], disablePurpleList = false): Promise<FormattedDonation[]> => {
+    const purpleList = disablePurpleList ? [] : await getPurpleList()
+    return donations.filter(item => {
+        return purpleList.includes(item.giverAddress.toLowerCase())
+    })
 }
 
+
+export const donationValueAfterGivFactor = (params: {
+    givbackFactorParams: GivbackFactorParams,
+    usdValue: number,
+    powerRank: number
+}):number => {
+    // https://docs.google.com/spreadsheets/d/1yz_6sgFmEXgGU9BgeRtgVALQlNFWJMUkxddpTlG2Krs/edit#gid=0
+    const {givbackFactorParams, usdValue, powerRank} = params
+    const eachRoundImpact = (givbackFactorParams.maximumFactor - givbackFactorParams.minimumFactor) / (givbackFactorParams.topPowerRank-1)
+    const givFactor = powerRank ?
+        givbackFactorParams.minimumFactor + ( eachRoundImpact * (givbackFactorParams.topPowerRank - (powerRank) ) ):
+        givbackFactorParams.minimumFactor
+    return Number((usdValue * givFactor).toFixed(2))
+}

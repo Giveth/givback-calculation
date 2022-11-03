@@ -4,8 +4,9 @@ export interface FormattedDonation {
     amount: string,
     currency:string,
     createdAt:string,
-    valueUsd: string,
+    valueUsd: number,
     giverAddress: string,
+    powerRank : number,
     txHash: string,
     network: string,
     source: string,
@@ -20,7 +21,7 @@ export interface GivethIoDonation {
     amount: string,
     currency:string,
     createdAt:string,
-    valueUsd: string,
+    valueUsd: number,
     giverAddress: string,
     transactionId: string,
     transactionNetworkId: number,
@@ -34,8 +35,12 @@ export interface GivethIoDonation {
     project:{
         slug:string
         listed: boolean,
-        verified: boolean
+        verified: boolean,
+        projectPower : {
+            powerRank:number
+        }
     }
+
     // giverName: string
     // giverEmail: string,
     status: string,
@@ -46,7 +51,8 @@ export interface DonationResponse {
     giverAddress: string,
     giverEmail: string,
     giverName: string,
-    totalDonationsUsdValue: string,
+    totalDonationsUsdValue?: number,
+    totalDonationsUsdValueAfterGivFactor: number,
     givback:number,
     givbackUsdValue ?: string,
     share: number,
@@ -61,17 +67,11 @@ export interface MinimalDonation {
     niceTokens ?:number,
     share ?:number,
     totalDonationsUsdValue:number
+    totalDonationsUsdValueAfterGivFactor :number
 }
 
-export interface TraceDonation {
-    amount: string,
-    token: string,
-    createdAt: string,
-    usdValue: string,
-    giverAddress: string,
-    homeTxHash: string,
-    projectInfo :{
-        type:string,
-        title:string
-    }
+export interface GivbackFactorParams {
+    topPowerRank: number;
+    minimumFactor: number;
+    maximumFactor: number;
 }
