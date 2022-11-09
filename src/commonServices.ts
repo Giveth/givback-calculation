@@ -53,11 +53,20 @@ export const donationValueAfterGivFactor = (params: {
     usdValue: number,
     powerRank: number
 }):number => {
-    // https://docs.google.com/spreadsheets/d/1yz_6sgFmEXgGU9BgeRtgVALQlNFWJMUkxddpTlG2Krs/edit#gid=0
     const {givbackFactorParams, usdValue, powerRank} = params
+    const givFactor = calculateAffectedGivFactor({givbackFactorParams, powerRank})
+    return Number((usdValue * givFactor).toFixed(4))
+}
+
+export const calculateAffectedGivFactor = (params: {
+    givbackFactorParams: GivbackFactorParams,
+    powerRank: number
+}):number => {
+    // https://docs.google.com/spreadsheets/d/1yz_6sgFmEXgGU9BgeRtgVALQlNFWJMUkxddpTlG2Krs/edit#gid=0
+    const {givbackFactorParams, powerRank} = params
     const eachRoundImpact = (givbackFactorParams.maximumFactor - givbackFactorParams.minimumFactor) / (givbackFactorParams.topPowerRank-1)
     const givFactor = powerRank ?
         givbackFactorParams.minimumFactor + ( eachRoundImpact * (givbackFactorParams.topPowerRank - (powerRank) ) ):
         givbackFactorParams.minimumFactor
-    return Number((usdValue * givFactor).toFixed(2))
+    return  givFactor
 }

@@ -4,7 +4,12 @@ const {gql, request} = require('graphql-request');
 const moment = require('moment')
 const _ = require('underscore')
 
-import {donationValueAfterGivFactor, filterDonationsWithPurpleList, purpleListDonations} from './commonServices'
+import {
+    calculateAffectedGivFactor,
+    donationValueAfterGivFactor,
+    filterDonationsWithPurpleList,
+    purpleListDonations
+} from './commonServices'
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
 
@@ -24,6 +29,7 @@ export const getEligibleDonations = async (
         eligible?: boolean,
         disablePurpleList?: boolean,
         justCountListed?: boolean
+        givbackFactorParams: GivbackFactorParams
     }): Promise<FormattedDonation[]> => {
     try {
         const {
@@ -32,7 +38,8 @@ export const getEligibleDonations = async (
             niceWhitelistTokens,
             niceProjectSlugs,
             disablePurpleList,
-            justCountListed
+            justCountListed,
+            givbackFactorParams
         } = params
         const eligible = params.eligible === undefined ? true : params.eligible
         const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
@@ -140,11 +147,18 @@ export const getEligibleDonations = async (
                 )
         }
         const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
+            const powerRank = item.project.projectPower.powerRank
             return {
                 amount: item.amount,
                 currency: item.currency,
                 createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
                 valueUsd: item.valueUsd,
+                valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
+                    usdValue: Number(item.valueUsd),
+                    powerRank,
+                    givbackFactorParams
+                }),
+                givbackFactor: calculateAffectedGivFactor({givbackFactorParams, powerRank}),
                 powerRank: item.project.projectPower.powerRank,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
@@ -157,13 +171,20 @@ export const getEligibleDonations = async (
         });
 
         const formattedDonationsToNotVerifiedProjects: FormattedDonation[] = donationsToNotVerifiedProjects.map(item => {
+            const powerRank = item.project.projectPower.powerRank
             return {
                 amount: item.amount,
                 currency: item.currency,
                 createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
                 valueUsd: item.valueUsd,
-                giverAddress: item.fromWalletAddress,
+                valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
+                    usdValue: Number(item.valueUsd),
+                    powerRank,
+                    givbackFactorParams
+                }),
+                givbackFactor: calculateAffectedGivFactor({givbackFactorParams, powerRank}),
                 powerRank: item.project.projectPower.powerRank,
+                giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
                 network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
                 source: 'giveth.io',
@@ -287,7 +308,8 @@ export const getDonationsReport = async (beginDate: string,
                 beginDate, endDate,
                 niceWhitelistTokens,
                 niceProjectSlugs,
-                disablePurpleList: Boolean(niceWhitelistTokens)
+                disablePurpleList: Boolean(niceWhitelistTokens),
+                givbackFactorParams
             })
 
         const groups = _.groupBy(donations, 'giverAddress')
@@ -300,7 +322,7 @@ export const getDonationsReport = async (beginDate: string,
                     return total + o.valueUsd;
                 }, 0),
                 totalDonationsUsdValueAfterGivFactor: _.reduce(value, function (total: number, o: FormattedDonation) {
-                    return total  + donationValueAfterGivFactor({
+                    return total + donationValueAfterGivFactor({
                         usdValue: Number(o.valueUsd),
                         powerRank: o.powerRank,
                         givbackFactorParams
@@ -316,55 +338,7 @@ export const getDonationsReport = async (beginDate: string,
 }
 
 
-/**
- *
- * @param beginDate:string, example: 2021/07/01-00:00:00
- * @param endDate:string, example: 2021/07/12-00:00:00
- * @param params
- * @returns {Promise<[{totalDonationsUsdValue:320, givethAddress:"0xf74528c1f934b1d14e418a90587e53cbbe4e3ff9" }]>}
- */
-//TODO After doing https://forum.giveth.io/t/retroactive-givbacks/412 this should be deleted
-export const getDonationsReportRetroactive = async (beginDate: string, endDate: string, params: {
-    eligible?: boolean,
-    justCountListed?: boolean,
-    toGiveth?: boolean
-}): Promise<MinimalDonation[]> => {
-    const {justCountListed, toGiveth} = params;
-    const eligible = params.eligible === undefined ? true : params.eligible
-
-    try {
-        const donations = (await getEligibleDonations(
-            {
-                beginDate, endDate, eligible, justCountListed,
-                disablePurpleList: true
-
-            }
-        )).filter(
-            (donation: FormattedDonation) => toGiveth ?
-                donation.projectLink === 'https://giveth.io/project/the-giveth-community-of-makers' :
-                donation.projectLink !== 'https://giveth.io/project/the-giveth-community-of-makers'
-        )
-
-        const groups = _.groupBy(donations, 'giverAddress')
-        return _.map(groups, (value: FormattedDonation[], key: string) => {
-            return {
-                giverName: value[0].giverName,
-                giverEmail: value[0].giverEmail,
-                giverAddress: key.toLowerCase(),
-                totalDonationsUsdValue: _.reduce(value, function (total: number, o: MinimalDonation) {
-                    return total + o.valueUsd;
-                }, 0)
-            };
-        });
-
-    } catch (e) {
-        console.log('error in getting givethio donations', e)
-        throw e
-    }
-}
-
-
-export const getTopPowerRank = async () : Promise<number> =>{
+export const getTopPowerRank = async (): Promise<number> => {
     const query = gql`
         query {
         getTopPowerRank

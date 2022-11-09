@@ -22,7 +22,6 @@ import {
 
 import {
     getDonationsReport as givethIoDonations,
-    getDonationsReportRetroactive as getDonationsReportRetroactive,
     getEligibleDonations, getTopPowerRank,
     getVerifiedPurpleListDonations
 } from './givethIoService'
@@ -99,8 +98,6 @@ app.get(`/calculate`,
             })
 
             const givPrice = Number(req.query.givPrice)
-            const givAvailable = Number(req.query.givAvailable)
-            // const givWorth = givAvailable * givPrice
             const givethDonations = await givethIoDonations(startDate as string, endDate as string,
                 givbackFactorParams);
 
@@ -228,13 +225,23 @@ app.get(`/calculate`,
 
 const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, eligible = true) => {
     try {
-        const {endDate, startDate, download, justCountListed} = req.query;
+        const {
+            endDate, startDate, download, justCountListed, minGivFactor, maxGivFactor
+        } = req.query;
+        const topPowerRank = await getTopPowerRank()
+
+        const givbackFactorParams = {
+            minimumFactor: Number(minGivFactor),
+            maximumFactor: Number(maxGivFactor),
+            topPowerRank
+        }
         const givethIoDonations = await getEligibleDonations(
             {
                 beginDate: startDate as string,
                 endDate: endDate as string,
                 eligible,
-                justCountListed: justCountListed === 'yes'
+                justCountListed: justCountListed === 'yes',
+                givbackFactorParams
             });
         const donations =
             givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
@@ -262,8 +269,17 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
     try {
         const {
             endDate, startDate, download, justCountListed, niceWhitelistTokens,
-            niceProjectSlugs, nicePerDollar
+            niceProjectSlugs, nicePerDollar,
+            minGivFactor, maxGivFactor
         } = req.query;
+
+        const topPowerRank = await getTopPowerRank()
+
+        const givbackFactorParams = {
+            minimumFactor: Number(minGivFactor),
+            maximumFactor: Number(maxGivFactor),
+            topPowerRank
+        }
         const tokens = (niceWhitelistTokens as string).split(',')
         const slugs = (niceProjectSlugs as string).split(',')
         const allDonations = await getEligibleDonations(
@@ -273,6 +289,7 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
                 niceProjectSlugs: slugs,
                 endDate: endDate as string,
                 eligible: true,
+                givbackFactorParams,
                 justCountListed: justCountListed === 'yes'
             });
         const donations =

@@ -109,6 +109,18 @@
             "in": "query"
           },
           {
+            "name": "minGivFactor",
+            "type": "string",
+            "default": "0.5",
+            "in": "query"
+          },
+          {
+            "name": "maxGivFactor",
+            "type": "string",
+            "default": "0.8",
+            "in": "query"
+          },
+          {
             "name": "download",
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
