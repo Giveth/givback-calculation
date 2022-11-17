@@ -21,6 +21,7 @@ import {
 
 
 import {
+    getAllProjectsSortByRank,
     getDonationsReport as givethIoDonations,
     getEligibleDonations, getTopPowerRank,
     getVerifiedPurpleListDonations
@@ -321,6 +322,12 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
 app.get(`/eligible-donations`, async (req: Request, res: Response) => {
     await getEligibleAndNonEligibleDonations(req, res, true)
 })
+app.get(`/getAllProjectsSortByRank`, async (req: Request, res: Response) => {
+    const result = await getAllProjectsSortByRank()
+    res.send(result)
+})
+
+
 app.get(`/eligible-donations-for-nice-token`, async (req: Request, res: Response) => {
     await getEligibleDonationsForNiceToken(req, res)
 })

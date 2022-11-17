@@ -137,6 +137,16 @@
         }
       }
     },
+    "/getAllProjectsSortByRank": {
+      "get": {
+        "description": "Get list of givethIo projects sort by power rank DESC",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/eligible-donations-for-nice-token": {
       "get": {
         "description": "Return all donations to verifed projects/campaigns and purpleList addresses are excluded",

@@ -1,4 +1,4 @@
-import {FormattedDonation, GivbackFactorParams, GivethIoDonation, MinimalDonation} from "./types/general";
+import {FormattedDonation, GivbackFactorParams, GivethIoDonation, MinimalDonation, Project} from "./types/general";
 
 const {gql, request} = require('graphql-request');
 const moment = require('moment')
@@ -351,5 +351,64 @@ export const getTopPowerRank = async (): Promise<number> => {
     } catch (e) {
         console.log('getTopPowerRank error', e)
         throw new Error('Error in getting getTopPowerRank from impact-graph')
+    }
+}
+
+const getProjectsSortByRank = async (limit: number, offset: number):Promise<Project[]> => {
+    const query = gql`
+          query{  
+            projects(
+              limit: ${limit}
+              skip: ${offset}
+            ) {
+              projects {
+                id
+                title
+                slug
+                verified
+                projectPower {
+                  totalPower
+                  powerRank
+                  round
+                }
+              }
+              totalCount
+            }
+           }
+           
+    `;
+
+    try {
+        const result = await request(`${givethiobaseurl}/graphql`, query)
+        return result.projects.projects.map((project :Project) => {
+            project.link = `${process.env.GIVETHIO_DAPP_URL}/project/${project.slug}`
+            return project
+        })
+    } catch (e) {
+        console.log('getProjectsSortByRank error', e, givethiobaseurl)
+        throw new Error('Error in getting getProjectsSortByRank from impact-graph')
+    }
+}
+export const getAllProjectsSortByRank = async (): Promise<Project[]> => {
+    const limit = 50
+    let offset = 0
+    let projects : Project[] =[]
+    try {
+        let stillFetch = true
+        while (stillFetch){
+            const result = await getProjectsSortByRank(limit, offset)
+            projects = projects.concat(result)
+            if (result.length ===0){
+                stillFetch = false
+            }
+            if (result[result.length -1].projectPower.totalPower ===0){
+                stillFetch = false
+            }
+            offset += result.length
+        }
+        return projects
+    } catch (e) {
+        console.log('getAllProjectsSortByRank error', e)
+        throw new Error('Error in getting getAllProjectsSortByRank from impact-graph')
     }
 }
