@@ -55,7 +55,7 @@ export const donationValueAfterGivFactor = (params: {
 }):number => {
     const {givbackFactorParams, usdValue, powerRank} = params
     const givFactor = calculateAffectedGivFactor({givbackFactorParams, powerRank})
-    return Number((usdValue * givFactor).toFixed(4))
+    return Number((usdValue * givFactor).toFixed(7))
 }
 
 export const calculateAffectedGivFactor = (params: {

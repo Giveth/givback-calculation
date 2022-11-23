@@ -119,7 +119,7 @@ app.get(`/calculate`,
                     giverName: value[0].giverName,
                     totalDonationsUsdValue,
                     totalDonationsUsdValueAfterGivFactor,
-                    averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(2)
+                    averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(3)
                 };
             });
             const result = allDonations.sort((a, b) => {
@@ -138,13 +138,9 @@ app.get(`/calculate`,
             const donationsWithShare: DonationResponse[] = result.map((item: MinimalDonation) => {
                 const share = item.totalDonationsUsdValueAfterGivFactor / raisedValueSum;
                 const givback = (item.totalDonationsUsdValueAfterGivFactor / givPrice)
-                console.log('givback givFactor', {
-                    item
-
-                })
                 const niceShare = niceDonationsWithShare.find((niceShareItem: MinimalDonation) => niceShareItem.giverAddress === item.giverAddress)
-                const totalDonationsUsdValueAfterGivFactor = Number(item.totalDonationsUsdValueAfterGivFactor.toFixed(2))
-                const totalDonationsUsdValue = Number(item.totalDonationsUsdValue.toFixed(2))
+                const totalDonationsUsdValueAfterGivFactor = Number(item.totalDonationsUsdValueAfterGivFactor.toFixed(7))
+                const totalDonationsUsdValue = Number(item.totalDonationsUsdValue.toFixed(7))
                 return {
                     giverAddress: item.giverAddress,
                     giverEmail: item.giverEmail,
@@ -152,9 +148,9 @@ app.get(`/calculate`,
                     totalDonationsUsdValueAfterGivFactor,
                     totalDonationsUsdValue,
                     averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(2),
-                    givback: Number(givback.toFixed(2)),
-                    givbackUsdValue: (givback * givPrice).toFixed(2),
-                    share: Number(share.toFixed(8)),
+                    givback: Number(givback.toFixed(7)),
+                    givbackUsdValue: (givback * givPrice).toFixed(7),
+                    share: Number(share.toFixed(2)),
                     niceEarned: niceShare ? niceShare.niceTokens : 0
                 }
             }).filter(item => {
