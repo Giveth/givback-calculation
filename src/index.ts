@@ -119,7 +119,7 @@ app.get(`/calculate`,
                     giverName: value[0].giverName,
                     totalDonationsUsdValue,
                     totalDonationsUsdValueAfterGivFactor,
-                    averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(3)
+                    averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7)
                 };
             });
             const result = allDonations.sort((a, b) => {
@@ -147,7 +147,7 @@ app.get(`/calculate`,
                     giverName: item.giverName,
                     totalDonationsUsdValueAfterGivFactor,
                     totalDonationsUsdValue,
-                    averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(2),
+                    averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7),
                     givback: Number(givback.toFixed(7)),
                     givbackUsdValue: (givback * givPrice).toFixed(7),
                     share: Number(share.toFixed(7)),
