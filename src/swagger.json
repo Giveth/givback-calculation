@@ -34,18 +34,6 @@
             "in": "query"
           },
           {
-            "name": "minGivFactor",
-            "type": "string",
-            "default": "0.5",
-            "in": "query"
-          },
-          {
-            "name": "maxGivFactor",
-            "type": "string",
-            "default": "0.8",
-            "in": "query"
-          },
-          {
             "name": "givRelayerAddress",
             "type": "string",
             "default": "0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7",
@@ -106,18 +94,6 @@
             "name": "endDate",
             "type": "string",
             "default": "2022/01/21-15:59:59",
-            "in": "query"
-          },
-          {
-            "name": "minGivFactor",
-            "type": "string",
-            "default": "0.5",
-            "in": "query"
-          },
-          {
-            "name": "maxGivFactor",
-            "type": "string",
-            "default": "0.8",
             "in": "query"
           },
           {
@@ -312,6 +288,5 @@
         }
       }
     }
-
   }
 }

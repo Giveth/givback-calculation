@@ -49,24 +49,12 @@ export const purpleListDonations = async (donations: FormattedDonation[], disabl
 
 
 export const donationValueAfterGivFactor = (params: {
-    givbackFactorParams: GivbackFactorParams,
     usdValue: number,
-    powerRank: number
+    givFactor: number
 }):number => {
-    const {givbackFactorParams, usdValue, powerRank} = params
-    const givFactor = calculateAffectedGivFactor({givbackFactorParams, powerRank})
-    return Number((usdValue * givFactor).toFixed(7))
+    const {usdValue, givFactor}  = params
+    return Number(
+        (usdValue * givFactor).toFixed(7)
+    )
 }
 
-export const calculateAffectedGivFactor = (params: {
-    givbackFactorParams: GivbackFactorParams,
-    powerRank: number
-}):number => {
-    // https://docs.google.com/spreadsheets/d/1yz_6sgFmEXgGU9BgeRtgVALQlNFWJMUkxddpTlG2Krs/edit#gid=0
-    const {givbackFactorParams, powerRank} = params
-    const eachRoundImpact = (givbackFactorParams.maximumFactor - givbackFactorParams.minimumFactor) / (givbackFactorParams.topPowerRank-1)
-    const givFactor = powerRank ?
-        givbackFactorParams.minimumFactor + ( eachRoundImpact * (givbackFactorParams.topPowerRank - (powerRank) ) ):
-        givbackFactorParams.minimumFactor
-    return  givFactor
-}
