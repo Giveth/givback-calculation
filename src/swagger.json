@@ -311,6 +311,32 @@
           }
         }
       }
+    },
+    "/givDumpers": {
+      "get": {
+        "parameters": [
+
+          {
+            "in": "query",
+            "name": "minGivHold",
+            "type": "number",
+            "default": "5000",
+            "description": "min (GIV + gGIV) hold"
+          },
+          {
+            "in": "query",
+            "name": "minTotalClaimed",
+            "default": "100000",
+            "type": "number",
+            "description": ""
+          }
+        ],
+
+        "responses": {
+          "200": {
+          }
+        }
+      }
     }
 
   }
