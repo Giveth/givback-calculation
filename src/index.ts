@@ -28,6 +28,7 @@ import {
 } from './givethIoService'
 
 import {getPurpleList} from './commonServices'
+import {get_dumpers_list} from "./subgraphService";
 
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
 const {version} = require('../package.json');
@@ -406,6 +407,19 @@ app.get('/purpleList', async (req: Request, res: Response) => {
     try {
 
         res.json({purpleList: await getPurpleList()})
+    } catch (e: any) {
+        res.status(400).send({errorMessage: e.message})
+    }
+})
+app.get('/givDumpers', async (req: Request, res: Response) => {
+    try {
+        res.json(
+            await get_dumpers_list({
+                minTotalClaimed: req.query.minTotalClaimed as string,
+                minGivHold: req.query.minGivHold as string,
+
+            })
+        )
     } catch (e: any) {
         res.status(400).send({errorMessage: e.message})
     }
