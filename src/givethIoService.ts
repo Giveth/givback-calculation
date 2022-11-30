@@ -5,7 +5,6 @@ const moment = require('moment')
 const _ = require('underscore')
 
 import {
-    calculateAffectedGivFactor,
     donationValueAfterGivFactor,
     filterDonationsWithPurpleList,
     purpleListDonations
@@ -29,7 +28,6 @@ export const getEligibleDonations = async (
         eligible?: boolean,
         disablePurpleList?: boolean,
         justCountListed?: boolean
-        givbackFactorParams: GivbackFactorParams
     }): Promise<FormattedDonation[]> => {
     try {
         const {
@@ -39,7 +37,6 @@ export const getEligibleDonations = async (
             niceProjectSlugs,
             disablePurpleList,
             justCountListed,
-            givbackFactorParams
         } = params
         const eligible = params.eligible === undefined ? true : params.eligible
         const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
@@ -68,7 +65,11 @@ export const getEligibleDonations = async (
             transactionId
             transactionNetworkId
             amount
+            givbackFactor
             isProjectVerified
+            projectRank
+            powerRound
+            bottomRankInRound
             project {
               slug
               verified
@@ -147,19 +148,21 @@ export const getEligibleDonations = async (
                 )
         }
         const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
-            const powerRank = item.project.projectPower.powerRank
+            // Old donations dont have givbackFactor, so I use 0.5 for them
+            const givbackFactor = item.givbackFactor || 0.5;
             return {
                 amount: item.amount,
                 currency: item.currency,
                 createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
                 valueUsd: item.valueUsd,
+                bottomRankInRound: item.bottomRankInRound,
+                powerRound: item.powerRound,
+                projectRank: item.projectRank,
+                givbackFactor,
                 valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
-                    usdValue: Number(item.valueUsd),
-                    powerRank,
-                    givbackFactorParams
+                    usdValue:  item.valueUsd,
+                    givFactor: item.givbackFactor
                 }),
-                givbackFactor: calculateAffectedGivFactor({givbackFactorParams, powerRank}),
-                powerRank: item.project.projectPower.powerRank,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
                 network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
@@ -171,19 +174,20 @@ export const getEligibleDonations = async (
         });
 
         const formattedDonationsToNotVerifiedProjects: FormattedDonation[] = donationsToNotVerifiedProjects.map(item => {
-            const powerRank = item.project.projectPower.powerRank
+            const givbackFactor = item.givbackFactor || 0.5;
             return {
                 amount: item.amount,
                 currency: item.currency,
                 createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
                 valueUsd: item.valueUsd,
                 valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
-                    usdValue: Number(item.valueUsd),
-                    powerRank,
-                    givbackFactorParams
+                    usdValue: item.valueUsd,
+                    givFactor: item.givbackFactor
                 }),
-                givbackFactor: calculateAffectedGivFactor({givbackFactorParams, powerRank}),
-                powerRank: item.project.projectPower.powerRank,
+                givbackFactor,
+                projectRank: item.projectRank,
+                bottomRankInRound: item.bottomRankInRound,
+                powerRound: item.powerRound,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
                 network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
@@ -195,7 +199,9 @@ export const getEligibleDonations = async (
         });
         return eligible ?
             await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects, disablePurpleList) :
-            (await purpleListDonations(formattedDonationsToVerifiedProjects, disablePurpleList)).concat(formattedDonationsToNotVerifiedProjects)
+            (
+                await purpleListDonations(formattedDonationsToVerifiedProjects, disablePurpleList)
+            ).concat(formattedDonationsToNotVerifiedProjects)
 
     } catch (e) {
         console.log('getEligibleDonations() error', {
@@ -266,6 +272,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
                 currency: item.currency,
                 createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
                 valueUsd: item.valueUsd,
+                givbackFactor: item.givbackFactor,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
                 network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
@@ -299,7 +306,6 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
  */
 export const getDonationsReport = async (beginDate: string,
                                          endDate: string,
-                                         givbackFactorParams: GivbackFactorParams,
                                          niceWhitelistTokens ?: string[],
                                          niceProjectSlugs ?: string[]): Promise<MinimalDonation[]> => {
     try {
@@ -309,7 +315,6 @@ export const getDonationsReport = async (beginDate: string,
                 niceWhitelistTokens,
                 niceProjectSlugs,
                 disablePurpleList: Boolean(niceWhitelistTokens),
-                givbackFactorParams
             })
 
         const groups = _.groupBy(donations, 'giverAddress')
@@ -323,9 +328,8 @@ export const getDonationsReport = async (beginDate: string,
                 }, 0),
                 totalDonationsUsdValueAfterGivFactor: _.reduce(value, function (total: number, o: FormattedDonation) {
                     return total + donationValueAfterGivFactor({
-                        usdValue: Number(o.valueUsd),
-                        powerRank: o.powerRank,
-                        givbackFactorParams
+                        usdValue: o.valueUsd,
+                        givFactor: o.givbackFactor
                     });
                 }, 0),
             };
@@ -337,24 +341,7 @@ export const getDonationsReport = async (beginDate: string,
     }
 }
 
-
-export const getTopPowerRank = async (): Promise<number> => {
-    const query = gql`
-        query {
-        getTopPowerRank
-        }
-    `;
-
-    try {
-        const result = await request(`${givethiobaseurl}/graphql`, query)
-        return result.getTopPowerRank
-    } catch (e) {
-        console.log('getTopPowerRank error', e)
-        throw new Error('Error in getting getTopPowerRank from impact-graph')
-    }
-}
-
-const getProjectsSortByRank = async (limit: number, offset: number):Promise<Project[]> => {
+const getProjectsSortByRank = async (limit: number, offset: number): Promise<Project[]> => {
     const query = gql`
           query{  
             projects(
@@ -380,7 +367,7 @@ const getProjectsSortByRank = async (limit: number, offset: number):Promise<Proj
 
     try {
         const result = await request(`${givethiobaseurl}/graphql`, query)
-        return result.projects.projects.map((project :Project) => {
+        return result.projects.projects.map((project: Project) => {
             project.link = `${process.env.GIVETHIO_DAPP_URL}/project/${project.slug}`
             return project
         })
@@ -392,16 +379,16 @@ const getProjectsSortByRank = async (limit: number, offset: number):Promise<Proj
 export const getAllProjectsSortByRank = async (): Promise<Project[]> => {
     const limit = 50
     let offset = 0
-    let projects : Project[] =[]
+    let projects: Project[] = []
     try {
         let stillFetch = true
-        while (stillFetch){
+        while (stillFetch) {
             const result = await getProjectsSortByRank(limit, offset)
             projects = projects.concat(result)
-            if (result.length ===0){
+            if (result.length === 0) {
                 stillFetch = false
             }
-            if (result[result.length -1].projectPower.totalPower ===0){
+            if (result[result.length - 1].projectPower.totalPower === 0) {
                 stillFetch = false
             }
             offset += result.length
