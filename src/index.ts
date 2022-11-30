@@ -23,11 +23,11 @@ import {
 import {
     getAllProjectsSortByRank,
     getDonationsReport as givethIoDonations,
-    getEligibleDonations, getTopPowerRank,
+    getEligibleDonations,
     getVerifiedPurpleListDonations
 } from './givethIoService'
 
-import {donationValueAfterGivFactor, getPurpleList} from './commonServices'
+import {getPurpleList} from './commonServices'
 
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
 const {version} = require('../package.json');
@@ -50,21 +50,14 @@ app.get(`/calculate`,
                 givRelayerAddress,
                 niceWhitelistTokens,
                 niceProjectSlugs, nicePerDollar,
-                minGivFactor, maxGivFactor
             } = req.query;
 
-            const topPowerRank = await getTopPowerRank()
 
-            const givbackFactorParams = {
-                minimumFactor: Number(minGivFactor),
-                maximumFactor: Number(maxGivFactor),
-                topPowerRank
-            }
             const tokens = (niceWhitelistTokens as string).split(',')
             const slugs = (niceProjectSlugs as string).split(',')
 
             const givethDonationsForNice = await givethIoDonations(
-                startDate as string, endDate as string, givbackFactorParams, tokens, slugs)
+                startDate as string, endDate as string, tokens, slugs)
 
             const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
             const allNiceDonations = _.map(niceDonationsGroupByGiverAddress, (value: MinimalDonation[], key: string) => {
@@ -99,8 +92,7 @@ app.get(`/calculate`,
             })
 
             const givPrice = Number(req.query.givPrice)
-            const givethDonations = await givethIoDonations(startDate as string, endDate as string,
-                givbackFactorParams);
+            const givethDonations = await givethIoDonations(startDate as string, endDate as string);
 
             const givethioDonationsAmount = givethDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
                 return previousValue + currentValue.totalDonationsUsdValue
@@ -182,18 +174,15 @@ app.get(`/calculate`,
                 Number(maxAddressesPerFunctionCall) || 200
             );
             const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
-
             const response = {
                 raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
                 givDistributed,
                 givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
-                // givFactor: Number(givFactor.toFixed(4)),
                 ...smartContractCallParams,
                 givbacks: donationsWithShare,
                 // niceRaisedValueSumExcludedPurpleList: Math.ceil(raisedValueForGivethioDonationsSum),
                 // niceGivethioDonationsAmountForNice: Math.ceil(givethioDonationsAmountForNice),
                 // niceShares: niceDonationsWithShare,
-                topPowerRank,
                 purpleList: await getPurpleList(),
             };
             if (download === 'yes') {
@@ -223,22 +212,15 @@ app.get(`/calculate`,
 const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, eligible = true) => {
     try {
         const {
-            endDate, startDate, download, justCountListed, minGivFactor, maxGivFactor
+            endDate, startDate, download, justCountListed
         } = req.query;
-        const topPowerRank = await getTopPowerRank()
 
-        const givbackFactorParams = {
-            minimumFactor: Number(minGivFactor),
-            maximumFactor: Number(maxGivFactor),
-            topPowerRank
-        }
         const givethIoDonations = await getEligibleDonations(
             {
                 beginDate: startDate as string,
                 endDate: endDate as string,
                 eligible,
                 justCountListed: justCountListed === 'yes',
-                givbackFactorParams
             });
         const donations =
             givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
@@ -267,16 +249,8 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
         const {
             endDate, startDate, download, justCountListed, niceWhitelistTokens,
             niceProjectSlugs, nicePerDollar,
-            minGivFactor, maxGivFactor
         } = req.query;
 
-        const topPowerRank = await getTopPowerRank()
-
-        const givbackFactorParams = {
-            minimumFactor: Number(minGivFactor),
-            maximumFactor: Number(maxGivFactor),
-            topPowerRank
-        }
         const tokens = (niceWhitelistTokens as string).split(',')
         const slugs = (niceProjectSlugs as string).split(',')
         const allDonations = await getEligibleDonations(
@@ -286,14 +260,13 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
                 niceProjectSlugs: slugs,
                 endDate: endDate as string,
                 eligible: true,
-                givbackFactorParams,
                 justCountListed: justCountListed === 'yes'
             });
         const donations =
             allDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
                 return b.createdAt >= a.createdAt ? 1 : -1
             }).map((donation: FormattedDonation) => {
-                donation.niceTokens = (Number(donation.valueUsd) * Number(nicePerDollar)).toFixed(2)
+                donation.niceTokens = (donation.valueUsd * Number(nicePerDollar)).toFixed(2)
                 return donation
             })
 
