@@ -3,6 +3,7 @@ import axios from "axios";
 
 const GIV_CONTRACT_ADDRESS = '0x4f4f9b8d5b4d0dc10506e5551b0513b61fd59e75'
 const G_GIV_CONTRACT_ADDRESS = '0xffbabeb49be77e5254333d5fdff72920b989425f'
+const GIVETH_TOKEN_DISTRO_ADDRESS = '0xc0dbdca66a0636236fabe1b3c16b1bd4c84bb1e1'
 const subgraphAddress = process.env.GIV_ECONOMY_SUBGRAPH_URL as string
 
 const getTokenBalancesQuery = (params: {
@@ -40,6 +41,37 @@ const getTokenBalancesQuery = (params: {
 `
 }
 
+const getGivDropQuery = (params: {
+    whitelistUsers: string[],
+    skip: number
+}) => {
+    const {
+        whitelistUsers,
+        skip
+    } = params
+    let users = `[`
+    for (const walletAddress of whitelistUsers) {
+        users += `"${walletAddress}",`
+    }
+    users += ']'
+    return `
+        {
+          tokenAllocations (
+              first: 50
+              skip: ${skip}
+              where: {
+                distributor:"givdrop",
+                recipient_in : ${users}
+              }
+          ){
+              amount
+              recipient
+          }
+        
+        }
+`
+}
+
 const getClaimedAmountQuery = (minClaimAmount: string, skip: number) => {
     return `
         {
@@ -47,7 +79,8 @@ const getClaimedAmountQuery = (minClaimAmount: string, skip: number) => {
               first: 50
               skip: ${skip}
                where: {
-                claimed_gte:"${minClaimAmount}"
+                claimed_gte:"${minClaimAmount}",
+                tokenDistroAddress:"${GIVETH_TOKEN_DISTRO_ADDRESS}"
               } 
           ) {
             user{
@@ -80,14 +113,12 @@ const getClaimedAmountData = async (minAirdrop: string):
 
 
     return data.map(
-        (item: {
-             user: { id: string },
-             claimed: string
-         }
-        ) => {
+        item => {
             return {
                 walletAddress: item.user.id,
-                claimedAmount: Number(Web3.utils.fromWei(item.claimed, 'ether'))
+                claimedAmount: Math.floor(
+                    Number(Web3.utils.fromWei(item.claimed, 'ether'))
+                )
             }
         })
 }
@@ -125,7 +156,44 @@ const getBalanceData = async (tokenAddress: string, whitelistUsers: string[]):
         ) => {
             return {
                 walletAddress: item.user.id,
-                balance: Number(Web3.utils.fromWei(item.balance, 'ether'))
+                balance: Math.floor(
+                    Number(Web3.utils.fromWei(item.balance, 'ether'))
+                )
+            }
+        })
+}
+
+const getGivDropData = async (whitelistUsers: string[]):
+    Promise<{ walletAddress: string, givDrop: number }[]> => {
+    let skip = 0;
+    let data: {
+        recipient:string,
+        amount: string
+    }[] = []
+    let fetchData = true;
+    while (fetchData) {
+        const requestBody = {
+            query: getGivDropQuery({
+                skip,
+                whitelistUsers
+            })
+        }
+        const result = await axios.post(subgraphAddress, requestBody);
+        if (result?.data?.data?.tokenAllocations?.length > 0) {
+            data = data.concat(result.data.data.tokenAllocations)
+            skip += result.data.data.tokenAllocations.length
+        } else {
+            fetchData = false
+        }
+
+    }
+    return data.map(
+        item => {
+            return {
+                walletAddress: item.recipient,
+                givDrop: Math.floor(
+                    Number(Web3.utils.fromWei(item.amount, 'ether'))
+                )
             }
         })
 }
@@ -135,7 +203,6 @@ export const get_dumpers_list = async (params: {
     minTotalClaimed: string
 }) => {
     const {minGivHold, minTotalClaimed} = params;
-    const minBalance = Web3.utils.toWei(minGivHold, 'ether')
     const minAirdrop = Web3.utils.toWei(minTotalClaimed, 'ether')
 
     try {
@@ -145,16 +212,19 @@ export const get_dumpers_list = async (params: {
         )
         const givBalanceData = await getBalanceData(GIV_CONTRACT_ADDRESS, walletAddresses)
         const gGivBalanceData = await getBalanceData(G_GIV_CONTRACT_ADDRESS, walletAddresses)
+        const givDropData = await getGivDropData( walletAddresses)
         const result: {
             walletAddress: string,
             totalClaimed: number,
             givBalance: number,
             gGivBalance: number,
+            givDropAmount: number,
         } [] = []
         claimedData.forEach(item => {
             const walletAddress = item.walletAddress
             const givBalance = givBalanceData.find(balanceData => balanceData.walletAddress === walletAddress)?.balance || 0
             const gGivBalance = gGivBalanceData.find(balanceData => balanceData.walletAddress === walletAddress)?.balance || 0
+            const givDropAmount = givDropData.find(balanceData => balanceData.walletAddress === walletAddress)?.givDrop || 0
             if (
                 (givBalance + gGivBalance) <= Number(minGivHold)
             ) {
@@ -163,6 +233,7 @@ export const get_dumpers_list = async (params: {
                     totalClaimed: item.claimedAmount,
                     givBalance,
                     gGivBalance,
+                    givDropAmount,
                 })
             }
 
