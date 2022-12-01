@@ -149,7 +149,7 @@ export const getEligibleDonations = async (
         }
         const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
             // Old donations dont have givbackFactor, so I use 0.5 for them
-            const givbackFactor = item.givbackFactor || 0.5;
+            const givbackFactor = item.givbackFactor || 0.75;
             return {
                 amount: item.amount,
                 currency: item.currency,
