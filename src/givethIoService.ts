@@ -156,7 +156,7 @@ export const getEligibleDonations = async (
                 createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
                 valueUsd: item.valueUsd,
                 bottomRankInRound: item.bottomRankInRound,
-                powerRound: item.powerRound,
+                givbacksRound: item.givbacksRound,
                 projectRank: item.projectRank,
                 givbackFactor,
                 valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
@@ -187,7 +187,7 @@ export const getEligibleDonations = async (
                 givbackFactor,
                 projectRank: item.projectRank,
                 bottomRankInRound: item.bottomRankInRound,
-                powerRound: item.powerRound,
+                givbacksRound: item.givbacksRound,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
                 network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
