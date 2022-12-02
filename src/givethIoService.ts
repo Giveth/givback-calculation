@@ -160,7 +160,7 @@ export const getEligibleDonations = async (
                 projectRank: item.projectRank,
                 givbackFactor,
                 valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
-                    usdValue:  item.valueUsd,
+                    usdValue: item.valueUsd,
                     givFactor: item.givbackFactor
                 }),
                 giverAddress: item.fromWalletAddress,
@@ -293,7 +293,6 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
         throw e
     }
 }
-
 
 /**
  *
