@@ -27,7 +27,7 @@ export interface GivethIoDonation {
     valueUsd: number,
     givbackFactor: number,
     projectRank ?: number,
-    givbacksRound ?: number,
+    powerRound ?: number,
     bottomRankInRound ?: number,
     giverAddress: string,
     transactionId: string,
