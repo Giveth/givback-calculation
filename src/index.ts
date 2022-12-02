@@ -52,7 +52,9 @@ app.get(`/calculate`,
                 niceWhitelistTokens,
                 niceProjectSlugs, nicePerDollar,
             } = req.query;
-
+            const givAvailable = Number(req.query.givAvailable)
+            const givPrice = Number(req.query.givPrice)
+            const givWorth = givAvailable * givPrice
 
             const tokens = (niceWhitelistTokens as string).split(',')
             const slugs = (niceProjectSlugs as string).split(',')
@@ -74,6 +76,7 @@ app.get(`/calculate`,
             const allNiceDonationsSorted = allNiceDonations.sort((a: MinimalDonation, b: MinimalDonation) => {
                 return b.totalDonationsUsdValue - a.totalDonationsUsdValue
             });
+
             let raisedValueForGivethioDonationsSum = 0;
             for (const donation of allNiceDonationsSorted) {
                 raisedValueForGivethioDonationsSum += donation.totalDonationsUsdValue;
@@ -92,19 +95,25 @@ app.get(`/calculate`,
                 return item.share > 0
             })
 
-            const givPrice = Number(req.query.givPrice)
             const givethDonations = await givethIoDonations(startDate as string, endDate as string);
 
             const givethioDonationsAmount = givethDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
                 return previousValue + currentValue.totalDonationsUsdValue
             }, 0);
+            const givethioDonationsAmountAfterGivbackFactor = givethDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
+                return previousValue + currentValue.totalDonationsUsdValueAfterGivFactor
+            }, 0);
+            const maxGivbackFactorPercentage = Math.min(1,
+              givWorth/givethioDonationsAmountAfterGivbackFactor
+            )
             const groupByGiverAddress = _.groupBy(givethDonations, 'giverAddress')
+
             const allDonations: MinimalDonation[] = _.map(groupByGiverAddress, (value: MinimalDonation[], key: string) => {
                 const totalDonationsUsdValue = _.reduce(value, (total: number, o: MinimalDonation) => {
                     return total + o.totalDonationsUsdValue;
                 }, 0)
                 const totalDonationsUsdValueAfterGivFactor = _.reduce(value, (total: number, o: MinimalDonation) => {
-                    return total + o.totalDonationsUsdValueAfterGivFactor;
+                    return total + o.totalDonationsUsdValueAfterGivFactor * maxGivbackFactorPercentage;
                 }, 0)
                 return {
                     giverAddress: key.toLowerCase(),
