@@ -187,7 +187,7 @@ export const getEligibleDonations = async (
                 givbackFactor,
                 projectRank: item.projectRank,
                 bottomRankInRound: item.powerRound,
-                givbacksRound: item.givbacksRound,
+                givbacksRound: item.powerRound,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
                 network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
