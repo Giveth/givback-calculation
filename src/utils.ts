@@ -15,17 +15,12 @@ export const createSmartContractCallAddBatchParams = async (params: {
     donationsWithShare,
     givRelayerAddress} = params;
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
-  let result = `connect ${nrGIVAddress} token-manager voting:1 act agent:0 ${givRelayerAddress} `;
-  result += 'addBatches(bytes32[],bytes) ['
   const hashParams :any= {
     ipfsLink:'',
   }
   let nonce = await getLastNonceForWalletAddress(givRelayerAddress)
   const rawDatasForHash  = []
   for (let i = 0; i < partNumbers; i++) {
-    if (i !== 0){
-      result += ','
-    }
     const smartContractBatchData =  getSmartContractAddBatchesHash(
       {
         donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall),
@@ -34,14 +29,13 @@ export const createSmartContractCallAddBatchParams = async (params: {
     )
     const hash = smartContractBatchData.hash
     rawDatasForHash.push(smartContractBatchData.rawData)
-    result += `${hash}`
     hashParams[hash] = {
       rawData:smartContractBatchData.rawData
     }
     nonce += 1
   }
   const ipfsHash = await pinJSONToIPFS({jsonBody: rawDatasForHash})
-  result+=`] ${ipfsHash}`
+  const result = `load giveth; giveth:initiate-givbacks ${ipfsHash} --relayer ${givRelayerAddress}`;
   hashParams.ipfsLink = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`
   return {
     result,
