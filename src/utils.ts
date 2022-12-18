@@ -11,9 +11,13 @@ export const createSmartContractCallAddBatchParams = async (params: {
                                                        donationsWithShare:DonationResponse[] ,
                                                        givRelayerAddress: string
                                                      }, maxAddressesPerFunctionCall:number) => {
-  const { nrGIVAddress,
+  const {
     donationsWithShare,
     givRelayerAddress} = params;
+  if ( donationsWithShare.length ===0 ){
+    throw new Error('There is no eligible donations in this time range')
+
+  }
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
   const hashParams :any= {
     ipfsLink:'',
