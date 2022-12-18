@@ -35,7 +35,7 @@ export const createSmartContractCallAddBatchParams = async (params: {
     nonce += 1
   }
   const ipfsHash = await pinJSONToIPFS({jsonBody: rawDatasForHash})
-  const result = `load giveth; giveth givbacks-initiate ${ipfsHash} --relayer ${givRelayerAddress}`;
+  const result = `load giveth; giveth:initiate-givbacks ${ipfsHash} --relayer ${givRelayerAddress}`;
   hashParams.ipfsLink = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`
   return {
     result,
