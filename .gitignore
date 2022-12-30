@@ -105,3 +105,4 @@ $RECYCLE.BIN/
 *.lnk
 
 .env
+dist/*

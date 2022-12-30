@@ -7,7 +7,7 @@ const givEconomyMainnetSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/gi
 const xdaiWeb3 = new Web3('https://dry-small-sound.xdai.quiknode.pro');
 const mainnetWeb3 = new Web3(process.env.MAINNET_NODE_URL);
 
-const getEthGivPriceInXdai = async (blockNumber) => {
+export const getEthGivPriceInXdai = async (blockNumber:number) => {
   const query = blockNumber ? `{
         pairs(block: {number : ${blockNumber}}) {
             reserve0
@@ -38,7 +38,7 @@ const getEthGivPriceInXdai = async (blockNumber) => {
   return pair.reserve1 / pair.reserve0
 }
 
-const getEthGivPriceInMainnet = async (blockNumber) => {
+export const getEthGivPriceInMainnet = async (blockNumber:number):Promise<number> => {
   const uniswapV3PoolAddress = '0xc763b6b3d0f75167db95daa6a0a0d75dd467c4e1'
   const query = blockNumber ? `{
           uniswapV3Pool(id: "${uniswapV3PoolAddress}", block: {number : ${blockNumber}}) {
@@ -97,11 +97,11 @@ const getEthGivPriceInMainnet = async (blockNumber) => {
     Number(uniswapV3Pool.liquidity),
     Number(uniswapV3Pool.tick),
   );
-  return pool.priceOf(givToken).toFixed(10)
+  return Number(pool.priceOf(givToken).toFixed(10))
 }
 
 
-const getEthPriceTimeStamp = async (timestampInSeconds) => {
+export const getEthPriceTimeStamp = async (timestampInSeconds:number):Promise<number> => {
   const cryptoCompareUrl = 'https://min-api.cryptocompare.com/data/dayAvg'
   const result = await axios.get(cryptoCompareUrl, {
     params: {
@@ -114,7 +114,7 @@ const getEthPriceTimeStamp = async (timestampInSeconds) => {
 
 }
 
-const getTimestampOfBlock = async (blockNumber, network) => {
+export const getTimestampOfBlock = async (blockNumber:number, network:string) : Promise<number> => {
 
   const block = await getWebProvider(network).eth.getBlock(blockNumber);
   if (!block) {
@@ -123,7 +123,7 @@ const getTimestampOfBlock = async (blockNumber, network) => {
   return block.timestamp;
 }
 
-const getBlockNumberOfTxHash = async (txHash, network) => {
+export const getBlockNumberOfTxHash = async (txHash:string, network:string) : Promise<number> => {
   const transaction = await getWebProvider(network).eth.getTransaction(
     txHash,
   );
@@ -133,14 +133,7 @@ const getBlockNumberOfTxHash = async (txHash, network) => {
   return transaction.blockNumber
 }
 
-const getWebProvider = (network) => {
+const getWebProvider = (network:string) => {
   return network === 'mainnet' ? mainnetWeb3 : xdaiWeb3;
 }
 
-module.exports = {
-  getEthGivPriceInXdai,
-  getEthGivPriceInMainnet,
-  getEthPriceTimeStamp,
-  getBlockNumberOfTxHash,
-  getTimestampOfBlock
-}
