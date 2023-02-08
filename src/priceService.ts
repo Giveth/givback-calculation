@@ -4,7 +4,7 @@ const {Pool} = require("@uniswap/v3-sdk");
 const { Token } = require('@uniswap/sdk-core');
 const givEconomyXdaiSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-xdai'
 const givEconomyMainnetSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-mainnet'
-const xdaiWeb3 = new Web3('https://dry-small-sound.xdai.quiknode.pro');
+const xdaiWeb3 = new Web3(process.env.XDAI_NODE_HTTP_URL);
 const mainnetWeb3 = new Web3(process.env.MAINNET_NODE_URL);
 
 export const getEthGivPriceInXdai = async (blockNumber:number) => {
