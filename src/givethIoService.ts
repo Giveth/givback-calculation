@@ -9,6 +9,7 @@ import {
     filterDonationsWithPurpleList,
     purpleListDonations
 } from './commonServices'
+import {getNetworkNameById} from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
 
@@ -165,7 +166,7 @@ export const getEligibleDonations = async (
                 }),
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
-                network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
+                network: getNetworkNameById(item.transactionNetworkId),
                 source: 'giveth.io',
                 giverName: item && item.user && item.user.name,
                 giverEmail: item && item.user && item.user.email,
@@ -190,7 +191,7 @@ export const getEligibleDonations = async (
                 givbacksRound: item.powerRound,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
-                network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
+                network: getNetworkNameById(item.transactionNetworkId),
                 source: 'giveth.io',
                 giverName: item && item.user && item.user.name,
                 giverEmail: item && item.user && item.user.email,
@@ -275,7 +276,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
                 givbackFactor: item.givbackFactor,
                 giverAddress: item.fromWalletAddress,
                 txHash: item.transactionId,
-                network: item.transactionNetworkId === 1 ? 'mainnet' : 'xDAI',
+                network: getNetworkNameById(item.transactionNetworkId),
                 source: 'giveth.io',
                 giverName: item && item.user && item.user.name,
                 giverEmail: item && item.user && item.user.email,

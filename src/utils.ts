@@ -7,25 +7,26 @@ const {hexlify, solidityKeccak256} = ethers.utils;
 
 // check variables always
 export const createSmartContractCallAddBatchParams = async (params: {
-                                                       nrGIVAddress: string,
-                                                       donationsWithShare:DonationResponse[] ,
-                                                       givRelayerAddress: string
-                                                     }, maxAddressesPerFunctionCall:number) => {
+  nrGIVAddress: string,
+  donationsWithShare: DonationResponse[],
+  givRelayerAddress: string
+}, maxAddressesPerFunctionCall: number) => {
   const {
     donationsWithShare,
-    givRelayerAddress} = params;
-  if ( donationsWithShare.length ===0 ){
+    givRelayerAddress
+  } = params;
+  if (donationsWithShare.length === 0) {
     throw new Error('There is no eligible donations in this time range')
 
   }
   const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
-  const hashParams :any= {
-    ipfsLink:'',
+  const hashParams: any = {
+    ipfsLink: '',
   }
   let nonce = await getLastNonceForWalletAddress(givRelayerAddress)
-  const rawDatasForHash  = []
+  const rawDatasForHash = []
   for (let i = 0; i < partNumbers; i++) {
-    const smartContractBatchData =  getSmartContractAddBatchesHash(
+    const smartContractBatchData = getSmartContractAddBatchesHash(
       {
         donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall),
         nonce
@@ -34,7 +35,7 @@ export const createSmartContractCallAddBatchParams = async (params: {
     const hash = smartContractBatchData.hash
     rawDatasForHash.push(smartContractBatchData.rawData)
     hashParams[hash] = {
-      rawData:smartContractBatchData.rawData
+      rawData: smartContractBatchData.rawData
     }
     nonce += 1
   }
@@ -48,16 +49,15 @@ export const createSmartContractCallAddBatchParams = async (params: {
 }
 
 
-
-const getSmartContractAddBatchesHash =  (params: {
-                                          donationsWithShare: DonationResponse[],
-                                          nonce :number
-                                        }) => {
+const getSmartContractAddBatchesHash = (params: {
+  donationsWithShare: DonationResponse[],
+  nonce: number
+}) => {
   const {
     donationsWithShare,
-        nonce
+    nonce
   } = params
-  const rawData =  {
+  const rawData = {
     nonce,
     amounts: donationsWithShare.map(
       givback => String(
@@ -67,12 +67,12 @@ const getSmartContractAddBatchesHash =  (params: {
     recipients: donationsWithShare.map(({giverAddress}) => giverAddress),
 
   }
-  const hash =  hashBatchEthers(rawData)
-  return { hash, rawData}
+  const hash = hashBatchEthers(rawData)
+  return {hash, rawData}
 }
 
 
-const convertExponentialNumber = (n:number) => {
+const convertExponentialNumber = (n: number) => {
   const sign = +n < 0 ? "-" : "",
     toStr = n.toString();
   if (!/e/i.test(toStr)) {
@@ -89,10 +89,10 @@ const convertExponentialNumber = (n:number) => {
 
 
 function hashBatchEthers(params: {
-                           nonce : number,
-                           recipients: string[],
-                           amounts: string[]
-                         }) {
+  nonce: number,
+  recipients: string[],
+  amounts: string[]
+}) {
   const {
     nonce,
     recipients,
@@ -113,10 +113,29 @@ function hashBatchEthers(params: {
 const xdaiWeb3NodeUrl = process.env.XDAI_NODE_HTTP_URL
 const xdaiWeb3 = new Web3(xdaiWeb3NodeUrl);
 
-export const getLastNonceForWalletAddress = async (walletAddress: string) : Promise<number>=> {
+export const getLastNonceForWalletAddress = async (walletAddress: string): Promise<number> => {
   const userTransactionsCount = await xdaiWeb3.eth.getTransactionCount(
     walletAddress
   );
   return userTransactionsCount - 1
 }
 
+
+export const getNetworkNameById = (networkId: number): string => {
+  switch (networkId) {
+    case 1:
+      return 'mainnet'
+    case 3:
+      return 'ropsten'
+    case 5:
+      return 'goerli'
+    case 10 :
+      return 'optimistic'
+    case 100 :
+      return 'gnosis'
+    case 137:
+      return 'polygon'
+    default:
+      return 'unknown network'
+  }
+}
