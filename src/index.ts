@@ -162,9 +162,9 @@ app.get(`/calculate`,
                     totalDonationsUsdValueAfterGivFactor,
                     totalDonationsUsdValue,
                     averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7),
-                    givback: Number(givback.toFixed(7)),
-                    givbackUsdValue: (givback * givPrice).toFixed(7),
-                    share: Number(share.toFixed(7)),
+                    givback: Number(givback.toFixed(6)),
+                    givbackUsdValue: (givback * givPrice).toFixed(6),
+                    share: Number(share.toFixed(6)),
                     niceEarned: niceShare ? niceShare.niceTokens : 0
                 }
             }).filter(item => {
