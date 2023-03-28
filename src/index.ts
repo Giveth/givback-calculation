@@ -22,7 +22,7 @@ import {
 
 import {
     getAllProjectsSortByRank,
-    getDonationsReport as givethIoDonations,
+    getDonationsReport ,
     getEligibleDonations,
     getVerifiedPurpleListDonations
 } from './givethIoService'
@@ -59,8 +59,13 @@ app.get(`/calculate`,
             const tokens = (niceWhitelistTokens as string).split(',')
             const slugs = (niceProjectSlugs as string).split(',')
 
-            const givethDonationsForNice = await givethIoDonations(
-                startDate as string, endDate as string, tokens, slugs)
+            const givethDonationsForNice = await getDonationsReport(
+              {
+                 beginDate: startDate as string,
+                  endDate:endDate as string,
+                  niceWhitelistTokens:tokens,
+                  niceProjectSlugs: slugs
+              })
 
             const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
             const allNiceDonations = _.map(niceDonationsGroupByGiverAddress, (value: MinimalDonation[], key: string) => {
@@ -95,7 +100,11 @@ app.get(`/calculate`,
                 return item.share > 0
             })
 
-            const givethDonations = await givethIoDonations(startDate as string, endDate as string);
+            const givethDonations = await getDonationsReport({
+                beginDate: startDate as string,
+                endDate: endDate as string,
+                applyChainvineReferral: true
+            });
 
             const givethioDonationsAmount = givethDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
                 return previousValue + currentValue.totalDonationsUsdValue
@@ -106,7 +115,10 @@ app.get(`/calculate`,
             const maxGivbackFactorPercentage = Math.min(1,
               givWorth/givethioDonationsAmountAfterGivbackFactor
             )
+
+
             const groupByGiverAddress = _.groupBy(givethDonations, 'giverAddress')
+
 
             const allDonations: MinimalDonation[] = _.map(groupByGiverAddress, (value: MinimalDonation[], key: string) => {
                 const totalDonationsUsdValue = _.reduce(value, (total: number, o: MinimalDonation) => {

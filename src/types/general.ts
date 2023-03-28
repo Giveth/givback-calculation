@@ -18,6 +18,9 @@ export interface FormattedDonation {
     projectLink?: string,
     niceTokens?: string,
     info?: string,
+
+    isReferrerGivbackEligible ?:boolean,
+    referrerWallet ?:string
 }
 
 export interface GivethIoDonation {
@@ -52,6 +55,8 @@ export interface GivethIoDonation {
     // giverEmail: string,
     status: string,
     isProjectVerified: boolean,
+    isReferrerGivbackEligible ?:boolean,
+    referrerWallet ?:string
 }
 
 export interface DonationResponse {
