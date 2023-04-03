@@ -21,6 +21,8 @@ export interface FormattedDonation {
 
     isReferrerGivbackEligible ?:boolean,
     referrerWallet ?:string
+    referrer ?: boolean,
+    referred ?: boolean
 }
 
 export interface GivethIoDonation {
@@ -69,6 +71,12 @@ export interface DonationResponse {
     givbackUsdValue?: string,
     share: number,
     niceEarned: number
+
+    totalReferralDeductedUsdValue?: number
+    totalReferralDeductedUsdValueAfterGivFactor?: number
+
+    totalReferralAddedUsdValue?: number
+    totalReferralAddedUsdValueAfterGivFactor?: number
 }
 
 export interface MinimalDonation {
@@ -80,6 +88,12 @@ export interface MinimalDonation {
     share?: number,
     totalDonationsUsdValue: number
     totalDonationsUsdValueAfterGivFactor: number
+
+    totalReferralDeductedUsdValue?: number
+    totalReferralDeductedUsdValueAfterGivFactor?: number
+
+    totalReferralAddedUsdValue?: number
+    totalReferralAddedUsdValueAfterGivFactor?: number
 }
 
 export interface GivbackFactorParams {

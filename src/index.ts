@@ -131,6 +131,12 @@ app.get(`/calculate`,
                     giverAddress: key.toLowerCase(),
                     giverEmail: value[0].giverEmail,
                     giverName: value[0].giverName,
+
+                    totalReferralDeductedUsdValue: value[0].totalReferralDeductedUsdValue,
+                    totalReferralDeductedUsdValueAfterGivFactor: value[0].totalReferralDeductedUsdValueAfterGivFactor,
+                    totalReferralAddedUsdValue: value[0].totalReferralAddedUsdValue,
+                    totalReferralAddedUsdValueAfterGivFactor: value[0].totalReferralAddedUsdValueAfterGivFactor,
+
                     totalDonationsUsdValue,
                     totalDonationsUsdValueAfterGivFactor,
                     averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7)
@@ -161,6 +167,12 @@ app.get(`/calculate`,
                     giverName: item.giverName,
                     totalDonationsUsdValueAfterGivFactor,
                     totalDonationsUsdValue,
+
+                    totalReferralDeductedUsdValue: item.totalReferralDeductedUsdValue,
+                    totalReferralDeductedUsdValueAfterGivFactor: item.totalReferralDeductedUsdValueAfterGivFactor,
+                    totalReferralAddedUsdValue: item.totalReferralAddedUsdValue,
+                    totalReferralAddedUsdValueAfterGivFactor: item.totalReferralAddedUsdValueAfterGivFactor,
+
                     averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7),
                     givback: Number(givback.toFixed(6)),
                     givbackUsdValue: (givback * givPrice).toFixed(6),

@@ -9,10 +9,9 @@ import {
   filterDonationsWithPurpleList,
   purpleListDonations
 } from './commonServices'
-import {getNetworkNameById} from "./utils";
+import {calculateReferralRewardFromRemainingAmount, calculateReferralReward, getNetworkNameById} from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
-const referralSharePercentage = Number(process.env.REFERRAL_SHARE_PERCENTAGE) ||10
 
 /**
  *
@@ -340,11 +339,13 @@ export const getDonationsReport = async (params: {
           donations.push(
             {
               ...donation,
-              valueUsd : donation.valueUsd * (100 - referralSharePercentage)/100,
+              valueUsd : donation.valueUsd - calculateReferralReward(donation.valueUsd),
+              referred: true
             },
             {
               ...donation,
-              valueUsd : donation.valueUsd * referralSharePercentage/100,
+              referrer :true,
+              valueUsd : calculateReferralReward(donation.valueUsd),
               giverAddress: donation.referrerWallet,
               giverEmail: response.find(d => d.giverAddress ===donation.referrerWallet)?.giverEmail || '',
               giverName: response.find(d => d.giverAddress ===donation.referrerWallet)?.giverName || 'Referrer donor',
@@ -355,9 +356,11 @@ export const getDonationsReport = async (params: {
         }
       }
     }
+    console.log('**donations**', donations)
     const groups = _.groupBy(donations, 'giverAddress')
     return _.map(groups, (value: FormattedDonation[], key: string) => {
-      return {
+
+      const result = {
         giverName: value[0].giverName,
         giverEmail: value[0].giverEmail,
         giverAddress: key.toLowerCase(),
@@ -370,7 +373,28 @@ export const getDonationsReport = async (params: {
             givFactor: o.givbackFactor
           });
         }, 0),
-      };
+
+        totalReferralAddedUsdValue: _.reduce(value, function (total: number, o: FormattedDonation) {
+          return o.referrer ?  total + o.valueUsd:  total
+        }, 0),
+        totalReferralAddedUsdValueAfterGivFactor: _.reduce(value, function (total: number, o: FormattedDonation) {
+          return o.referrer  ? total + donationValueAfterGivFactor({
+            usdValue: o.valueUsd,
+            givFactor: o.givbackFactor
+          }) :  total;
+        }, 0),
+
+        totalReferralDeductedUsdValue: _.reduce(value, function (total: number, o: FormattedDonation) {
+          return o.referred ? total + calculateReferralRewardFromRemainingAmount(o.valueUsd): total;
+        }, 0),
+        totalReferralDeductedUsdValueAfterGivFactor: _.reduce(value, function (total: number, o: FormattedDonation) {
+          return  o.referred ? total + donationValueAfterGivFactor({
+            usdValue: calculateReferralRewardFromRemainingAmount(o.valueUsd),
+            givFactor: o.givbackFactor
+          }): total;
+        }, 0),
+      }
+      return result;
     });
 
   } catch (e) {

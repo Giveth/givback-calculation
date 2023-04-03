@@ -139,3 +139,13 @@ export const getNetworkNameById = (networkId: number): string => {
       return 'unknown network'
   }
 }
+
+const referralSharePercentage = Number(process.env.REFERRAL_SHARE_PERCENTAGE) ||10
+
+export const calculateReferralReward = (valueUsd: number) :number=>{
+  return valueUsd * (referralSharePercentage/100)
+}
+export const calculateReferralRewardFromRemainingAmount = (valueUsdAfterDeduction: number) :number=>{
+  const originalValue = valueUsdAfterDeduction * 100 /(100- referralSharePercentage)
+  return calculateReferralReward(originalValue)
+}
