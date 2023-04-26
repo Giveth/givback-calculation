@@ -135,6 +135,8 @@ export const getNetworkNameById = (networkId: number): string => {
       return 'gnosis'
     case 137:
       return 'polygon'
+    case 42220:
+      return 'celo'
     default:
       return 'unknown network'
   }
