@@ -9,7 +9,12 @@ import {
   filterDonationsWithPurpleList,
   purpleListDonations
 } from './commonServices'
-import {calculateReferralRewardFromRemainingAmount, calculateReferralReward, getNetworkNameById} from "./utils";
+import {
+  calculateReferralRewardFromRemainingAmount,
+  calculateReferralReward,
+  getNetworkNameById,
+  filterRawDonationsByChain
+} from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
 
@@ -28,7 +33,9 @@ export const getEligibleDonations = async (
     niceProjectSlugs?: string[],
     eligible?: boolean,
     disablePurpleList?: boolean,
-    justCountListed?: boolean
+    justCountListed?: boolean,
+    chain ?: "all-other-chains" |"optimism"
+
   }): Promise<FormattedDonation[]> => {
   try {
     const {
@@ -38,6 +45,7 @@ export const getEligibleDonations = async (
       niceProjectSlugs,
       disablePurpleList,
       justCountListed,
+      chain
     } = params
     const eligible = params.eligible === undefined ? true : params.eligible
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
@@ -92,7 +100,8 @@ export const getEligibleDonations = async (
     `;
 
     const result = await request(`${givethiobaseurl}/graphql`, query)
-    let donationsToVerifiedProjects: GivethIoDonation[] = result.donations
+    const rawDonationsFilterByChain = filterRawDonationsByChain(result, chain)
+    let donationsToVerifiedProjects: GivethIoDonation[] = rawDonationsFilterByChain
       .filter(
         (donation: GivethIoDonation) =>
           moment(donation.createdAt) < secondDate
@@ -102,7 +111,7 @@ export const getEligibleDonations = async (
           && donation.status === 'verified'
       )
 
-    let donationsToNotVerifiedProjects: GivethIoDonation[] = result.donations
+    let donationsToNotVerifiedProjects: GivethIoDonation[] = rawDonationsFilterByChain
       .filter(
         (donation: GivethIoDonation) =>
           moment(donation.createdAt) < secondDate
@@ -264,7 +273,8 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
     `;
 
     const result = await request(`${givethiobaseurl}/graphql`, query)
-    let donationsToVerifiedProjects = result.donations
+    const rawDonations = result.donations
+    let donationsToVerifiedProjects = rawDonations
       .filter(
         (donation: GivethIoDonation) =>
           moment(donation.createdAt) < secondDate
@@ -310,14 +320,16 @@ export const getDonationsReport = async (params: {
 
   niceWhitelistTokens?: string[],
   niceProjectSlugs?: string[],
-  applyChainvineReferral?: boolean
+  applyChainvineReferral?: boolean,
+  chain ?: "all-other-chains" |"optimism"
 }): Promise<MinimalDonation[]> => {
   const {
     beginDate,
     endDate,
     niceWhitelistTokens,
     niceProjectSlugs,
-    applyChainvineReferral
+    applyChainvineReferral,
+    chain
   } = params
   try {
     const response = await getEligibleDonations(
@@ -326,6 +338,7 @@ export const getDonationsReport = async (params: {
         niceWhitelistTokens,
         niceProjectSlugs,
         disablePurpleList: Boolean(niceWhitelistTokens),
+        chain
       })
 
 

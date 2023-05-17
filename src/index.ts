@@ -51,6 +51,7 @@ app.get(`/calculate`,
                 givRelayerAddress,
                 niceWhitelistTokens,
                 niceProjectSlugs, nicePerDollar,
+              chain
             } = req.query;
             const givAvailable = Number(req.query.givAvailable)
             const givPrice = Number(req.query.givPrice)
@@ -64,7 +65,7 @@ app.get(`/calculate`,
                  beginDate: startDate as string,
                   endDate:endDate as string,
                   niceWhitelistTokens:tokens,
-                  niceProjectSlugs: slugs
+                  niceProjectSlugs: slugs,
               })
 
             const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
@@ -103,7 +104,8 @@ app.get(`/calculate`,
             const givethDonations = await getDonationsReport({
                 beginDate: startDate as string,
                 endDate: endDate as string,
-                applyChainvineReferral: true
+                applyChainvineReferral: true,
+                chain: chain as "all-other-chains" |"optimism"
             });
 
             const givethioDonationsAmount = givethDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
@@ -246,7 +248,8 @@ app.get(`/calculate`,
 const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, eligible = true) => {
     try {
         const {
-            endDate, startDate, download, justCountListed
+            endDate, startDate, download, justCountListed,
+          chain
         } = req.query;
 
         const givethIoDonations = await getEligibleDonations(
@@ -255,6 +258,8 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
                 endDate: endDate as string,
                 eligible,
                 justCountListed: justCountListed === 'yes',
+                chain: chain as "all-other-chains" |"optimism"
+
             });
         const donations =
             givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
@@ -282,7 +287,7 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
     try {
         const {
             endDate, startDate, download, justCountListed, niceWhitelistTokens,
-            niceProjectSlugs, nicePerDollar,
+            niceProjectSlugs, nicePerDollar
         } = req.query;
 
         const tokens = (niceWhitelistTokens as string).split(',')
@@ -294,7 +299,8 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
                 niceProjectSlugs: slugs,
                 endDate: endDate as string,
                 eligible: true,
-                justCountListed: justCountListed === 'yes'
+                justCountListed: justCountListed === 'yes',
+
             });
         const donations =
             allDonations.sort((a: FormattedDonation, b: FormattedDonation) => {

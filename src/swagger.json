@@ -10,6 +10,14 @@
         "description": "It return both givback and NICE results",
         "parameters": [
           {
+            "name": "chain",
+            "type": "string",
+            "description": "For Optimism we need to distribute on Optimism chain so we should have different response",
+            "default": "all-other-chains",
+            "enum": ["all-other-chains","optimism"],
+            "in": "query"
+          },
+          {
             "name": "startDate",
             "type": "string",
             "default": "2022/01/14-16:00:00",
@@ -84,6 +92,14 @@
       "get": {
         "description": "Return all donations to verifed projects/campaigns and purpleList addresses are excluded",
         "parameters": [
+          {
+            "name": "chain",
+            "type": "string",
+            "description": "For Optimism we need to distribute on Optimism chain so we should have different response",
+            "default": "all-other-chains",
+            "enum": ["all-other-chains","optimism"],
+            "in": "query"
+          },
           {
             "name": "startDate",
             "type": "string",
@@ -179,6 +195,14 @@
       "get": {
         "description": "Return all donations to unVerified projects/campaigns and donations to verified projects/campains from purple list addresses",
         "parameters": [
+          {
+            "name": "chain",
+            "type": "string",
+            "description": "For Optimism we need to distribute on Optimism chain so we should have different response",
+            "default": "all-other-chains",
+            "enum": ["all-other-chains","optimism"],
+            "in": "query"
+          },
           {
             "name": "startDate",
             "type": "string",
