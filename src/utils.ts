@@ -1,4 +1,4 @@
-import {DonationResponse} from "./types/general";
+import {DonationResponse, GivethIoDonation} from "./types/general";
 
 const {ethers} = require("ethers");
 const Web3 = require('web3');
@@ -142,6 +142,18 @@ export const getNetworkNameById = (networkId: number): string => {
   }
 }
 
+export const filterRawDonationsByChain = (gqlResult :{donations :GivethIoDonation[]},   chain ?: "all-other-chains" |"optimism"): GivethIoDonation[]=>{
+  if (chain === 'optimism'){
+    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 10)
+  }else if (chain === "all-other-chains") {
+    // Exclude Optimism donations and return all other donations
+    return gqlResult.donations.filter(donation => donation.transactionNetworkId !== 10)
+  }else{
+    return  gqlResult.donations
+  }
+
+
+}
 const referralSharePercentage = Number(process.env.REFERRAL_SHARE_PERCENTAGE) ||10
 
 export const calculateReferralReward = (valueUsd: number) :number=>{
