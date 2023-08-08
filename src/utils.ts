@@ -130,7 +130,9 @@ export const getNetworkNameById = (networkId: number): string => {
     case 5:
       return 'goerli'
     case 10 :
-      return 'optimistic'
+      return 'optimism'
+    case 420 :
+      return 'optimism-goerli'
     case 100 :
       return 'gnosis'
     case 137:
@@ -144,10 +146,10 @@ export const getNetworkNameById = (networkId: number): string => {
 
 export const filterRawDonationsByChain = (gqlResult :{donations :GivethIoDonation[]},   chain ?: "all-other-chains" |"optimism"): GivethIoDonation[]=>{
   if (chain === 'optimism'){
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 10)
+    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 10 ||  donation.transactionNetworkId === 420)
   }else if (chain === "all-other-chains") {
     // Exclude Optimism donations and return all other donations
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId !== 10)
+    return gqlResult.donations.filter(donation => donation.transactionNetworkId !== 10 && donation.transactionNetworkId !== 420)
   }else{
     return  gqlResult.donations
   }
