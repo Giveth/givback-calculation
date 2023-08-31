@@ -9,14 +9,7 @@
       "get": {
         "description": "It return both givback and NICE results",
         "parameters": [
-          {
-            "name": "chain",
-            "type": "string",
-            "description": "For Optimism we need to distribute on Optimism chain so we should have different response",
-            "default": "all-other-chains",
-            "enum": ["all-other-chains","optimism"],
-            "in": "query"
-          },
+
           {
             "name": "startDate",
             "type": "string",
@@ -76,7 +69,7 @@
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
-            "enum": ["yes","no"],
+            "enum": ["no", "optimism","all-other-chains", "NICE" ],
             "in": "query"
           }
         ],

@@ -3,8 +3,8 @@ import {Request, Response} from "express";
 
 const dotenv = require('dotenv')
 if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'staging') {
-    // In production and staging env we use .env in docker-compose so we dont need dotenv package
-    dotenv.config()
+  // In production and staging env we use .env in docker-compose so we dont need dotenv package
+  dotenv.config()
 }
 
 const express = require('express');
@@ -13,18 +13,22 @@ const swaggerUi = require('swagger-ui-express');
 const {parse} = require('json2csv');
 
 const swaggerDocument = require('./swagger.json');
-import {createSmartContractCallAddBatchParams} from "./utils";
 import {
-    getBlockNumberOfTxHash, getTimestampOfBlock, getEthGivPriceInMainnet,
-    getEthGivPriceInXdai, getEthPriceTimeStamp
+  convertMinimalDonationToDonationResponse,
+  createSmartContractCallAddBatchParams,
+  getDonationsForSmartContractParams
+} from "./utils";
+import {
+  getBlockNumberOfTxHash, getTimestampOfBlock, getEthGivPriceInMainnet,
+  getEthGivPriceInXdai, getEthPriceTimeStamp
 } from "./priceService";
 
 
 import {
-    getAllProjectsSortByRank,
-    getDonationsReport ,
-    getEligibleDonations,
-    getVerifiedPurpleListDonations
+  getAllProjectsSortByRank,
+  getDonationsReport,
+  getEligibleDonations,
+  getVerifiedPurpleListDonations
 } from './givethIoService'
 
 import {getPurpleList} from './commonServices'
@@ -42,335 +46,365 @@ const swaggerPrefix = process.env.NODE_ENV === 'staging' ? '/staging' : ''
 app.use(`${swaggerPrefix}/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get(`/calculate`,
-    async (req: Request, res: Response) => {
-        try {
-            console.log('start calculating')
-            const {
-                download, endDate, startDate,
-                maxAddressesPerFunctionCall,
-                givRelayerAddress,
-                niceWhitelistTokens,
-                niceProjectSlugs, nicePerDollar,
-              chain
-            } = req.query;
-            const givAvailable = Number(req.query.givAvailable)
-            const givPrice = Number(req.query.givPrice)
-            const givWorth = givAvailable * givPrice
+  async (req: Request, res: Response) => {
+    try {
+      console.log('start calculating')
+      const {
+        download, endDate, startDate,
+        maxAddressesPerFunctionCall,
+        givRelayerAddress,
+        niceWhitelistTokens,
+        niceProjectSlugs, nicePerDollar,
+      } = req.query;
+      const givAvailable = Number(req.query.givAvailable)
+      const givPrice = Number(req.query.givPrice)
+      const givWorth = givAvailable * givPrice
 
-            const tokens = (niceWhitelistTokens as string).split(',')
-            const slugs = (niceProjectSlugs as string).split(',')
+      const tokens = (niceWhitelistTokens as string).split(',')
+      const slugs = (niceProjectSlugs as string).split(',')
 
-            const givethDonationsForNice = await getDonationsReport(
-              {
-                 beginDate: startDate as string,
-                  endDate:endDate as string,
-                  niceWhitelistTokens:tokens,
-                  niceProjectSlugs: slugs,
-              })
+      const givethDonationsForNice = await getDonationsReport(
+        {
+          beginDate: startDate as string,
+          endDate: endDate as string,
+          niceWhitelistTokens: tokens,
+          niceProjectSlugs: slugs,
+        })
 
-            const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
-            const allNiceDonations = _.map(niceDonationsGroupByGiverAddress, (value: MinimalDonation[], key: string) => {
-                return {
-                    giverAddress: key.toLowerCase(),
-                    giverEmail: value[0].giverEmail,
-                    giverName: value[0].giverName,
-                    totalDonationsUsdValue: _.reduce(value, (total: number, o: MinimalDonation) => {
-                        return total + o.totalDonationsUsdValue;
-                    }, 0)
-                };
-            });
-            const allNiceDonationsSorted = allNiceDonations.sort((a: MinimalDonation, b: MinimalDonation) => {
-                return b.totalDonationsUsdValue - a.totalDonationsUsdValue
-            });
+      const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
+      const allNiceDonations = _.map(niceDonationsGroupByGiverAddress, (value: MinimalDonation[], key: string) => {
+        return {
+          giverAddress: key.toLowerCase(),
+          giverEmail: value[0].giverEmail,
+          giverName: value[0].giverName,
+          totalDonationsUsdValue: _.reduce(value, (total: number, o: MinimalDonation) => {
+            return total + o.totalDonationsUsdValue;
+          }, 0)
+        };
+      });
+      const allNiceDonationsSorted = allNiceDonations.sort((a: MinimalDonation, b: MinimalDonation) => {
+        return b.totalDonationsUsdValue - a.totalDonationsUsdValue
+      });
 
-            let raisedValueForGivethioDonationsSum = 0;
-            for (const donation of allNiceDonationsSorted) {
-                raisedValueForGivethioDonationsSum += donation.totalDonationsUsdValue;
-            }
-            const niceDonationsWithShare = allNiceDonationsSorted.map((item: MinimalDonation) => {
-                const share = item.totalDonationsUsdValue / raisedValueForGivethioDonationsSum;
-                return {
-                    giverAddress: item.giverAddress,
-                    giverEmail: item.giverEmail,
-                    giverName: item.giverName,
-                    totalDonationsUsdValue: Number(item.totalDonationsUsdValue).toFixed(2),
-                    niceTokens: (Number(item.totalDonationsUsdValue) * Number(nicePerDollar as string)).toFixed(2),
-                    share: Number(share.toFixed(8)),
-                }
-            }).filter((item: DonationResponse) => {
-                return item.share > 0
-            })
-
-            const givethDonations = await getDonationsReport({
-                beginDate: startDate as string,
-                endDate: endDate as string,
-                applyChainvineReferral: true,
-                chain: chain as "all-other-chains" |"optimism"
-            });
-
-            const givethioDonationsAmount = givethDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
-                return previousValue + currentValue.totalDonationsUsdValue
-            }, 0);
-            const givethioDonationsAmountAfterGivbackFactor = givethDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
-                return previousValue + currentValue.totalDonationsUsdValueAfterGivFactor
-            }, 0);
-            const maxGivbackFactorPercentage = Math.min(1,
-              givWorth/givethioDonationsAmountAfterGivbackFactor
-            )
-
-
-            const groupByGiverAddress = _.groupBy(givethDonations, 'giverAddress')
-
-
-            const allDonations: MinimalDonation[] = _.map(groupByGiverAddress, (value: MinimalDonation[], key: string) => {
-                const totalDonationsUsdValue = _.reduce(value, (total: number, o: MinimalDonation) => {
-                    return total + o.totalDonationsUsdValue;
-                }, 0)
-                const totalDonationsUsdValueAfterGivFactor = _.reduce(value, (total: number, o: MinimalDonation) => {
-                    return total + o.totalDonationsUsdValueAfterGivFactor * maxGivbackFactorPercentage;
-                }, 0)
-                return {
-                    giverAddress: key.toLowerCase(),
-                    giverEmail: value[0].giverEmail,
-                    giverName: value[0].giverName,
-
-                    totalReferralDeductedUsdValue: value[0].totalReferralDeductedUsdValue,
-                    totalReferralDeductedUsdValueAfterGivFactor: value[0].totalReferralDeductedUsdValueAfterGivFactor,
-                    totalReferralAddedUsdValue: value[0].totalReferralAddedUsdValue,
-                    totalReferralAddedUsdValueAfterGivFactor: value[0].totalReferralAddedUsdValueAfterGivFactor,
-
-                    totalDonationsUsdValue,
-                    totalDonationsUsdValueAfterGivFactor,
-                    averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7)
-                };
-            });
-            const result = allDonations.sort((a, b) => {
-                return b.totalDonationsUsdValueAfterGivFactor - a.totalDonationsUsdValueAfterGivFactor
-            });
-            let raisedValueSum = 0;
-            for (const donation of result) {
-                raisedValueSum += donation.totalDonationsUsdValue;
-            }
-            let raisedValueSumAfterGivFactor = 0;
-            for (const donation of result) {
-                raisedValueSumAfterGivFactor += donation.totalDonationsUsdValueAfterGivFactor;
-            }
-            // const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
-            // const givDistributed = givFactor * (raisedValueSum / givPrice);
-            const donationsWithShare: DonationResponse[] = result.map((item: MinimalDonation) => {
-                const share = item.totalDonationsUsdValueAfterGivFactor / raisedValueSum;
-                const givback = (item.totalDonationsUsdValueAfterGivFactor / givPrice)
-                const niceShare = niceDonationsWithShare.find((niceShareItem: MinimalDonation) => niceShareItem.giverAddress === item.giverAddress)
-                const totalDonationsUsdValueAfterGivFactor = Number(item.totalDonationsUsdValueAfterGivFactor.toFixed(7))
-                const totalDonationsUsdValue = Number(item.totalDonationsUsdValue.toFixed(7))
-                return {
-                    giverAddress: item.giverAddress,
-                    giverEmail: item.giverEmail,
-                    giverName: item.giverName,
-                    totalDonationsUsdValueAfterGivFactor,
-                    totalDonationsUsdValue,
-
-                    totalReferralDeductedUsdValue: item.totalReferralDeductedUsdValue,
-                    totalReferralDeductedUsdValueAfterGivFactor: item.totalReferralDeductedUsdValueAfterGivFactor,
-                    totalReferralAddedUsdValue: item.totalReferralAddedUsdValue,
-                    totalReferralAddedUsdValueAfterGivFactor: item.totalReferralAddedUsdValueAfterGivFactor,
-
-                    averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7),
-                    givback: Number(givback.toFixed(6)),
-                    givbackUsdValue: (givback * givPrice).toFixed(6),
-                    share: Number(share.toFixed(6)),
-                    niceEarned: niceShare ? niceShare.niceTokens : 0
-                }
-            }).filter(item => {
-                return item.share > 0 || item.niceEarned > 0
-            })
-
-            for (const niceShareItem of niceDonationsWithShare) {
-                // because purpleLists are not in donationsWithShare so we have to put a loop to include them
-                if (donationsWithShare.find(donationShare => donationShare.giverAddress === niceShareItem.giverAddress)) {
-                    continue;
-                }
-                donationsWithShare.push({
-                    giverAddress: niceShareItem.giverAddress,
-                    giverEmail: niceShareItem.giverEmail,
-                    giverName: niceShareItem.giverName,
-                    totalDonationsUsdValue: niceShareItem.totalDonationsUsdValue,
-                    totalDonationsUsdValueAfterGivFactor: niceShareItem.totalDonationsUsdValueAfterGivFactor,
-                    givback: 0,
-                    share: 0,
-                    niceEarned: niceShareItem.niceTokens
-                })
-            }
-            const smartContractCallParams = await createSmartContractCallAddBatchParams(
-                {
-                    nrGIVAddress,
-                    donationsWithShare: donationsWithShare.filter(givback => givback.givback > 0),
-                    givRelayerAddress: givRelayerAddress as string
-                },
-                Number(maxAddressesPerFunctionCall) || 200
-            );
-            const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
-            const response = {
-                raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
-                givDistributed,
-                givethioDonationsAmount: Math.ceil(givethioDonationsAmount),
-                ...smartContractCallParams,
-                givbacks: donationsWithShare,
-                // niceRaisedValueSumExcludedPurpleList: Math.ceil(raisedValueForGivethioDonationsSum),
-                // niceGivethioDonationsAmountForNice: Math.ceil(givethioDonationsAmountForNice),
-                // niceShares: niceDonationsWithShare,
-                purpleList: await getPurpleList(),
-            };
-            if (download === 'yes') {
-                const csv = parse(response.givbacks.map((item: DonationResponse) => {
-                    return {
-                        givDistributed,
-                        givPrice,
-                        givbackUsdValue: givPrice * item.givback,
-                        ...item
-                    }
-                }));
-                const fileName = `givbackreport_${startDate}-${endDate}.csv`;
-                res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-                res.setHeader('Content-type', 'application/json');
-                res.send(csv)
-            } else {
-                res.send(response)
-            }
-        } catch (e: any) {
-            console.log("error happened", e)
-            res.status(400).send({
-                message: e.message
-            })
+      let raisedValueForGivethioDonationsSum = 0;
+      for (const donation of allNiceDonationsSorted) {
+        raisedValueForGivethioDonationsSum += donation.totalDonationsUsdValue;
+      }
+      const niceDonationsWithShare = allNiceDonationsSorted.map((item: MinimalDonation) => {
+        const share = item.totalDonationsUsdValue / raisedValueForGivethioDonationsSum;
+        return {
+          giverAddress: item.giverAddress,
+          giverEmail: item.giverEmail,
+          giverName: item.giverName,
+          totalDonationsUsdValue: Number(item.totalDonationsUsdValue).toFixed(2),
+          niceTokens: (Number(item.totalDonationsUsdValue) * Number(nicePerDollar as string)).toFixed(2),
+          share: Number(share.toFixed(8)),
         }
-    })
+      }).filter((item: DonationResponse) => {
+        return item.share > 0
+      })
+
+      // const givethDonations = await getDonationsReport({
+      //     beginDate: startDate as string,
+      //     endDate: endDate as string,
+      //     applyChainvineReferral: true,
+      //     chain: chain as "all-other-chains" |"optimism"
+      // });
+      //
+      const optimismDonations = await getDonationsReport({
+        beginDate: startDate as string,
+        endDate: endDate as string,
+        applyChainvineReferral: true,
+        chain: "optimism"
+      });
+      const otherChainDonations = await getDonationsReport({
+        beginDate: startDate as string,
+        endDate: endDate as string,
+        applyChainvineReferral: true,
+        chain: "all-other-chains"
+      });
+
+      const totalDonations = await getDonationsReport({
+        beginDate: startDate as string,
+        endDate: endDate as string,
+        applyChainvineReferral: true,
+      });
+
+      const totalDonationsAmount = totalDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
+        return previousValue + currentValue.totalDonationsUsdValue
+      }, 0);
+      const totalDonationsAmountAfterGivbackFactor = totalDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
+        return previousValue + currentValue.totalDonationsUsdValueAfterGivFactor
+      }, 0);
+      const maxGivbackFactorPercentage = Math.min(1,
+        givWorth / totalDonationsAmountAfterGivbackFactor
+      )
+
+
+      const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
+      const groupByGiverAddressForOptimismDonations = _.groupBy(optimismDonations, 'giverAddress')
+      const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
+
+
+      const optimismMinimalDonations = getDonationsForSmartContractParams({
+        maxGivbackFactorPercentage,
+        groupByGiverAddress: groupByGiverAddressForOptimismDonations
+      })
+
+      const allOtherChainsMinimalDonations = getDonationsForSmartContractParams({
+        maxGivbackFactorPercentage,
+        groupByGiverAddress: groupByGiverAddressForAllOtherChainsDonations
+      })
+
+      const totalMinimalDonations = getDonationsForSmartContractParams({
+        maxGivbackFactorPercentage,
+        groupByGiverAddress: groupByGiverAddressForTotalDonations
+      })
+
+      const totalMinimalDonationsSortedByUsdValue = totalMinimalDonations.sort((a, b) => {
+        return b.totalDonationsUsdValueAfterGivFactor - a.totalDonationsUsdValueAfterGivFactor
+      });
+      let raisedValueSum = 0;
+      for (const donation of totalMinimalDonationsSortedByUsdValue) {
+        raisedValueSum += donation.totalDonationsUsdValue;
+      }
+      let raisedValueSumAfterGivFactor = 0;
+      for (const donation of totalMinimalDonationsSortedByUsdValue) {
+        raisedValueSumAfterGivFactor += donation.totalDonationsUsdValueAfterGivFactor;
+      }
+
+
+      // const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
+      // const givDistributed = givFactor * (raisedValueSum / givPrice);
+
+      const optimismDonationsWithShare = convertMinimalDonationToDonationResponse({
+        minimalDonationsArray: optimismMinimalDonations,
+        givPrice,
+        raisedValueSum
+      })
+
+
+      const allOtherChainsDonationsWithShare = convertMinimalDonationToDonationResponse({
+        minimalDonationsArray: allOtherChainsMinimalDonations,
+        givPrice,
+        raisedValueSum
+      })
+
+      const niceDonationsWithShareFormatted: DonationResponse[] = []
+      for (const niceShareItem of niceDonationsWithShare) {
+        niceDonationsWithShareFormatted.push({
+          giverAddress: niceShareItem.giverAddress,
+          giverEmail: niceShareItem.giverEmail,
+          giverName: niceShareItem.giverName,
+          totalDonationsUsdValue: niceShareItem.totalDonationsUsdValue,
+          totalDonationsUsdValueAfterGivFactor: niceShareItem.totalDonationsUsdValueAfterGivFactor,
+          givback: 0,
+          share: 0,
+          niceEarned: niceShareItem.niceTokens
+        })
+      }
+      const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
+      const response = {
+        raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
+        givDistributed,
+        givethioDonationsAmount: Math.ceil(totalDonationsAmount),
+        optimism: {
+          smartContractParams: await createSmartContractCallAddBatchParams(
+            {
+              nrGIVAddress,
+              donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
+              givRelayerAddress: givRelayerAddress as string
+            },
+            Number(maxAddressesPerFunctionCall) || 200
+          ),
+          givbacks: optimismDonationsWithShare
+        },
+        allOtherChains: {
+          smartContractParams: await createSmartContractCallAddBatchParams(
+            {
+              nrGIVAddress,
+              donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
+              givRelayerAddress: givRelayerAddress as string
+            },
+            Number(maxAddressesPerFunctionCall) || 200
+          ),
+          givbacks: allOtherChainsDonationsWithShare
+        },
+        niceTokens: niceDonationsWithShareFormatted,
+        // niceRaisedValueSumExcludedPurpleList: Math.ceil(raisedValueForGivethioDonationsSum),
+        // niceGivethioDonationsAmountForNice: Math.ceil(givethioDonationsAmountForNice),
+        // niceShares: niceDonationsWithShare,
+        purpleList: await getPurpleList(),
+      };
+      if (download === "all-other-chains") {
+        const csv = parse(response.allOtherChains.givbacks.map((item: DonationResponse) => {
+          return {
+            givDistributed,
+            givPrice,
+            givbackUsdValue: givPrice * item.givback,
+            ...item
+          }
+        }));
+        const fileName = `givbackReport_allOtherChains_${startDate}-${endDate}.csv`;
+        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+        res.setHeader('Content-type', 'application/json');
+        res.send(csv)
+      } else if (download === "optimism") {
+        const csv = parse(response.optimism.givbacks.map((item: DonationResponse) => {
+          return {
+            givDistributed,
+            givPrice,
+            givbackUsdValue: givPrice * item.givback,
+            ...item
+          }
+        }));
+        const fileName = `givbackReport_optimism_${startDate}-${endDate}.csv`;
+        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+        res.setHeader('Content-type', 'application/json');
+        res.send(csv)
+      } else if (download === 'NICE') {
+        const csv = parse(response.niceTokens);
+        const fileName = `givbackReport_NICE_${startDate}-${endDate}.csv`;
+        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+        res.setHeader('Content-type', 'application/json');
+        res.send(csv)
+      } else {
+        res.send(response)
+      }
+    } catch (e: any) {
+      console.log("error happened", e)
+      res.status(400).send({
+        message: e.message
+      })
+    }
+  })
 
 const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, eligible = true) => {
-    try {
-        const {
-            endDate, startDate, download, justCountListed,
-          chain
-        } = req.query;
+  try {
+    const {
+      endDate, startDate, download, justCountListed,
+      chain
+    } = req.query;
 
-        const givethIoDonations = await getEligibleDonations(
-            {
-                beginDate: startDate as string,
-                endDate: endDate as string,
-                eligible,
-                justCountListed: justCountListed === 'yes',
-                chain: chain as "all-other-chains" |"optimism"
+    const givethIoDonations = await getEligibleDonations(
+      {
+        beginDate: startDate as string,
+        endDate: endDate as string,
+        eligible,
+        justCountListed: justCountListed === 'yes',
+        chain: chain as "all-other-chains" | "optimism"
 
-            });
-        const donations =
-            givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
-                return b.createdAt >= a.createdAt ? 1 : -1
-            })
+      });
+    const donations =
+      givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
+        return b.createdAt >= a.createdAt ? 1 : -1
+      })
 
-        if (download === 'yes') {
-            const csv = parse(donations);
-            const fileName = `${eligible ? 'eligible-donations' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
-            res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-            res.setHeader('Content-type', 'application/json');
-            res.send(csv)
-        } else {
-            res.send(donations)
-        }
-    } catch (e: any) {
-        console.log("error happened", e)
-        res.status(400).send({
-            message: e.message
-        })
+    if (download === 'yes') {
+      const csv = parse(donations);
+      const fileName = `${eligible ? 'eligible-donations' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
+      res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+      res.setHeader('Content-type', 'application/json');
+      res.send(csv)
+    } else {
+      res.send(donations)
     }
+  } catch (e: any) {
+    console.log("error happened", e)
+    res.status(400).send({
+      message: e.message
+    })
+  }
 }
 
 const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eligible = true) => {
-    try {
-        const {
-            endDate, startDate, download, justCountListed, niceWhitelistTokens,
-            niceProjectSlugs, nicePerDollar
-        } = req.query;
+  try {
+    const {
+      endDate, startDate, download, justCountListed, niceWhitelistTokens,
+      niceProjectSlugs, nicePerDollar
+    } = req.query;
 
-        const tokens = (niceWhitelistTokens as string).split(',')
-        const slugs = (niceProjectSlugs as string).split(',')
-        const allDonations = await getEligibleDonations(
-            {
-                beginDate: startDate as string,
-                niceWhitelistTokens: tokens,
-                niceProjectSlugs: slugs,
-                endDate: endDate as string,
-                eligible: true,
-                justCountListed: justCountListed === 'yes',
+    const tokens = (niceWhitelistTokens as string).split(',')
+    const slugs = (niceProjectSlugs as string).split(',')
+    const allDonations = await getEligibleDonations(
+      {
+        beginDate: startDate as string,
+        niceWhitelistTokens: tokens,
+        niceProjectSlugs: slugs,
+        endDate: endDate as string,
+        eligible: true,
+        justCountListed: justCountListed === 'yes',
 
-            });
-        const donations =
-            allDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
-                return b.createdAt >= a.createdAt ? 1 : -1
-            }).map((donation: FormattedDonation) => {
-                donation.niceTokens = (donation.valueUsd * Number(nicePerDollar)).toFixed(2)
-                return donation
-            })
+      });
+    const donations =
+      allDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
+        return b.createdAt >= a.createdAt ? 1 : -1
+      }).map((donation: FormattedDonation) => {
+        donation.niceTokens = (donation.valueUsd * Number(nicePerDollar)).toFixed(2)
+        return donation
+      })
 
 
-        if (download === 'yes') {
-            const csv = parse(donations);
-            const fileName = `${eligible ? 'eligible-donations-for-nice-tokens' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
-            res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-            res.setHeader('Content-type', 'application/json');
-            res.send(csv)
-        } else {
-            res.send(donations)
-        }
-    } catch (e: any) {
-        console.log("error happened", e)
-        res.status(400).send({
-            message: e.message
-        })
+    if (download === 'yes') {
+      const csv = parse(donations);
+      const fileName = `${eligible ? 'eligible-donations-for-nice-tokens' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
+      res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+      res.setHeader('Content-type', 'application/json');
+      res.send(csv)
+    } else {
+      res.send(donations)
     }
+  } catch (e: any) {
+    console.log("error happened", e)
+    res.status(400).send({
+      message: e.message
+    })
+  }
 }
 
 app.get(`/eligible-donations`, async (req: Request, res: Response) => {
-    await getEligibleAndNonEligibleDonations(req, res, true)
+  await getEligibleAndNonEligibleDonations(req, res, true)
 })
 app.get(`/getAllProjectsSortByRank`, async (req: Request, res: Response) => {
-    const result = await getAllProjectsSortByRank()
-    res.send(result)
+  const result = await getAllProjectsSortByRank()
+  res.send(result)
 })
 
 
 app.get(`/eligible-donations-for-nice-token`, async (req: Request, res: Response) => {
-    await getEligibleDonationsForNiceToken(req, res)
+  await getEligibleDonationsForNiceToken(req, res)
 })
 
 app.get(`/not-eligible-donations`, async (req: Request, res: Response) => {
-    await getEligibleAndNonEligibleDonations(req, res, false)
+  await getEligibleAndNonEligibleDonations(req, res, false)
 })
 
 
 app.get(`/purpleList-donations-to-verifiedProjects`, async (req: Request, res: Response) => {
-    try {
-        const {endDate, startDate, download} = req.query;
-        const givethIoDonations = await getVerifiedPurpleListDonations(startDate as string, endDate as string);
+  try {
+    const {endDate, startDate, download} = req.query;
+    const givethIoDonations = await getVerifiedPurpleListDonations(startDate as string, endDate as string);
 
-        const donations =
-            givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
-                return b.createdAt >= a.createdAt ? 1 : -1
-            })
+    const donations =
+      givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
+        return b.createdAt >= a.createdAt ? 1 : -1
+      })
 
-        if (download === 'yes') {
-            const csv = parse(donations);
-            const fileName = `purpleList-donations-to-verifiedProjectz-${startDate}-${endDate}.csv`;
-            res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-            res.setHeader('Content-type', 'application/json');
-            res.send(csv)
-        } else {
-            res.send(donations)
-        }
-    } catch (e: any) {
-        console.log("error happened", e)
-        res.status(400).send({
-            message: e.message
-        })
+    if (download === 'yes') {
+      const csv = parse(donations);
+      const fileName = `purpleList-donations-to-verifiedProjectz-${startDate}-${endDate}.csv`;
+      res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+      res.setHeader('Content-type', 'application/json');
+      res.send(csv)
+    } else {
+      res.send(donations)
     }
+  } catch (e: any) {
+    console.log("error happened", e)
+    res.status(400).send({
+      message: e.message
+    })
+  }
 })
 
 
@@ -410,62 +444,62 @@ app.get(`/purpleList-donations-to-verifiedProjects`, async (req: Request, res: R
 // })
 
 app.get('/givPrice', async (req: Request, res: Response) => {
-    try {
-        let {blockNumber, txHash, network = 'xdai'} = req.query;
-        let realBlockNumber = Number(blockNumber)
-        if (blockNumber && txHash) {
-            throw new Error('You should fill just one of txHash, blockNumber')
-        }
-        try {
-            realBlockNumber = txHash ? await getBlockNumberOfTxHash(txHash as string, network as string) : Number(blockNumber)
-        } catch (e) {
-            console.log('Error getting blockNumber of txHash', e)
-        }
-        const givPriceInEth = network === 'mainnet' ? await getEthGivPriceInMainnet(realBlockNumber) : await getEthGivPriceInXdai(realBlockNumber);
-        const timestamp = blockNumber ? await getTimestampOfBlock(realBlockNumber, network as string) : new Date().getTime()
-        const ethPriceInUsd = await getEthPriceTimeStamp(timestamp);
-        const givPriceInUsd = givPriceInEth * ethPriceInUsd
-
-        console.log('prices', {
-            givPriceInEth,
-            ethPriceInUsd,
-            givPriceInUsd
-        })
-        res.send({
-            givPriceInEth,
-            ethPriceInUsd,
-            givPriceInUsd
-        })
-    } catch (e: any) {
-        res.status(400).send({errorMessage: e.message})
+  try {
+    let {blockNumber, txHash, network = 'xdai'} = req.query;
+    let realBlockNumber = Number(blockNumber)
+    if (blockNumber && txHash) {
+      throw new Error('You should fill just one of txHash, blockNumber')
     }
+    try {
+      realBlockNumber = txHash ? await getBlockNumberOfTxHash(txHash as string, network as string) : Number(blockNumber)
+    } catch (e) {
+      console.log('Error getting blockNumber of txHash', e)
+    }
+    const givPriceInEth = network === 'mainnet' ? await getEthGivPriceInMainnet(realBlockNumber) : await getEthGivPriceInXdai(realBlockNumber);
+    const timestamp = blockNumber ? await getTimestampOfBlock(realBlockNumber, network as string) : new Date().getTime()
+    const ethPriceInUsd = await getEthPriceTimeStamp(timestamp);
+    const givPriceInUsd = givPriceInEth * ethPriceInUsd
+
+    console.log('prices', {
+      givPriceInEth,
+      ethPriceInUsd,
+      givPriceInUsd
+    })
+    res.send({
+      givPriceInEth,
+      ethPriceInUsd,
+      givPriceInUsd
+    })
+  } catch (e: any) {
+    res.status(400).send({errorMessage: e.message})
+  }
 })
 
 
 app.get('/purpleList', async (req: Request, res: Response) => {
-    try {
+  try {
 
-        res.json({purpleList: await getPurpleList()})
-    } catch (e: any) {
-        res.status(400).send({errorMessage: e.message})
-    }
+    res.json({purpleList: await getPurpleList()})
+  } catch (e: any) {
+    res.status(400).send({errorMessage: e.message})
+  }
 })
 app.get('/givDumpers', async (req: Request, res: Response) => {
-    try {
-        res.json(
-            await get_dumpers_list({
-                minTotalClaimed: req.query.minTotalClaimed as string,
-                minGivHold: req.query.minGivHold as string,
+  try {
+    res.json(
+      await get_dumpers_list({
+        minTotalClaimed: req.query.minTotalClaimed as string,
+        minGivHold: req.query.minGivHold as string,
 
-            })
-        )
-    } catch (e: any) {
-        res.status(400).send({errorMessage: e.message})
-    }
+      })
+    )
+  } catch (e: any) {
+    res.status(400).send({errorMessage: e.message})
+  }
 })
 
 
 app.listen(3000, () => {
-    console.log('listening to port 3000')
+  console.log('listening to port 3000')
 })
 
