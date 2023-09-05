@@ -33,9 +33,9 @@ export const convertMinimalDonationToDonationResponse  = (params :{
       totalReferralAddedUsdValueAfterGivFactor: item.totalReferralAddedUsdValueAfterGivFactor,
 
       averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7),
-      givback: Number(givback.toFixed(6)),
-      givbackUsdValue: (givback * givPrice).toFixed(6),
-      share: Number(share.toFixed(6)),
+      givback: Number(givback.toFixed(7)),
+      givbackUsdValue: (givback * givPrice).toFixed(7),
+      share: Number(share.toFixed(7)),
     }
   }).filter(item => {
     return item.share > 0
