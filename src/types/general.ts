@@ -70,7 +70,7 @@ export interface DonationResponse {
     givback: number,
     givbackUsdValue?: string,
     share: number,
-    niceEarned: number
+    niceEarned?: number
 
     totalReferralDeductedUsdValue?: number
     totalReferralDeductedUsdValueAfterGivFactor?: number

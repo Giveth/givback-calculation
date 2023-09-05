@@ -1,16 +1,85 @@
-import {DonationResponse, GivethIoDonation} from "./types/general";
+import {DonationResponse, GivethIoDonation, MinimalDonation} from "./types/general";
 
 const {ethers} = require("ethers");
 const Web3 = require('web3');
 const {pinJSONToIPFS} = require("./pinataUtils");
 const {hexlify, solidityKeccak256} = ethers.utils;
+const _ = require('underscore');
+
+
+export const convertMinimalDonationToDonationResponse  = (params :{
+  minimalDonationsArray : MinimalDonation[],
+  niceDonationsWithShare ?: MinimalDonation[],
+  raisedValueSum: number,
+  givPrice: number
+}): DonationResponse[] => {
+  const {minimalDonationsArray, raisedValueSum,
+    givPrice} = params
+  return minimalDonationsArray.map((item: MinimalDonation) => {
+    const share = item.totalDonationsUsdValueAfterGivFactor / raisedValueSum;
+    const givback = (item.totalDonationsUsdValueAfterGivFactor / givPrice)
+    const totalDonationsUsdValueAfterGivFactor = Number(item.totalDonationsUsdValueAfterGivFactor.toFixed(7))
+    const totalDonationsUsdValue = Number(item.totalDonationsUsdValue.toFixed(7))
+    return {
+      giverAddress: item.giverAddress,
+      giverEmail: item.giverEmail,
+      giverName: item.giverName,
+      totalDonationsUsdValueAfterGivFactor,
+      totalDonationsUsdValue,
+
+      totalReferralDeductedUsdValue: item.totalReferralDeductedUsdValue,
+      totalReferralDeductedUsdValueAfterGivFactor: item.totalReferralDeductedUsdValueAfterGivFactor,
+      totalReferralAddedUsdValue: item.totalReferralAddedUsdValue,
+      totalReferralAddedUsdValueAfterGivFactor: item.totalReferralAddedUsdValueAfterGivFactor,
+
+      averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7),
+      givback: Number(givback.toFixed(6)),
+      givbackUsdValue: (givback * givPrice).toFixed(6),
+      share: Number(share.toFixed(6)),
+    }
+  }).filter(item => {
+    return item.share > 0
+  })
+}
+
+export const getDonationsForSmartContractParams = (params: {
+  groupByGiverAddress: any,
+  maxGivbackFactorPercentage: number
+}): MinimalDonation[] => {
+  const {groupByGiverAddress, maxGivbackFactorPercentage} = params
+  return _.map(groupByGiverAddress, (value: MinimalDonation[], key: string) => {
+    const totalDonationsUsdValue = _.reduce(value, (total: number, o: MinimalDonation) => {
+      return total + o.totalDonationsUsdValue;
+    }, 0)
+    const totalDonationsUsdValueAfterGivFactor = _.reduce(value, (total: number, o: MinimalDonation) => {
+      return total + o.totalDonationsUsdValueAfterGivFactor * maxGivbackFactorPercentage;
+    }, 0)
+    return {
+      giverAddress: key.toLowerCase(),
+      giverEmail: value[0].giverEmail,
+      giverName: value[0].giverName,
+
+      totalReferralDeductedUsdValue: value[0].totalReferralDeductedUsdValue,
+      totalReferralDeductedUsdValueAfterGivFactor: value[0].totalReferralDeductedUsdValueAfterGivFactor,
+      totalReferralAddedUsdValue: value[0].totalReferralAddedUsdValue,
+      totalReferralAddedUsdValueAfterGivFactor: value[0].totalReferralAddedUsdValueAfterGivFactor,
+
+      totalDonationsUsdValue,
+      totalDonationsUsdValueAfterGivFactor,
+      averageGivbackFactor: (totalDonationsUsdValueAfterGivFactor / totalDonationsUsdValue).toFixed(7)
+    };
+  });
+}
 
 // check variables always
 export const createSmartContractCallAddBatchParams = async (params: {
   nrGIVAddress: string,
   donationsWithShare: DonationResponse[],
   givRelayerAddress: string
-}, maxAddressesPerFunctionCall: number) => {
+}, maxAddressesPerFunctionCall: number): Promise<{
+  result: string,
+  hashParams: string
+}> => {
   const {
     donationsWithShare,
     givRelayerAddress
@@ -144,24 +213,24 @@ export const getNetworkNameById = (networkId: number): string => {
   }
 }
 
-export const filterRawDonationsByChain = (gqlResult :{donations :GivethIoDonation[]},   chain ?: "all-other-chains" |"optimism"): GivethIoDonation[]=>{
-  if (chain === 'optimism'){
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 10 ||  donation.transactionNetworkId === 420)
-  }else if (chain === "all-other-chains") {
+export const filterRawDonationsByChain = (gqlResult: { donations: GivethIoDonation[] }, chain ?: "all-other-chains" | "optimism"): GivethIoDonation[] => {
+  if (chain === 'optimism') {
+    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 10 || donation.transactionNetworkId === 420)
+  } else if (chain === "all-other-chains") {
     // Exclude Optimism donations and return all other donations
     return gqlResult.donations.filter(donation => donation.transactionNetworkId !== 10 && donation.transactionNetworkId !== 420)
-  }else{
-    return  gqlResult.donations
+  } else {
+    return gqlResult.donations
   }
 
 
 }
-const referralSharePercentage = Number(process.env.REFERRAL_SHARE_PERCENTAGE) ||10
+const referralSharePercentage = Number(process.env.REFERRAL_SHARE_PERCENTAGE) || 10
 
-export const calculateReferralReward = (valueUsd: number) :number=>{
-  return valueUsd * (referralSharePercentage/100)
+export const calculateReferralReward = (valueUsd: number): number => {
+  return valueUsd * (referralSharePercentage / 100)
 }
-export const calculateReferralRewardFromRemainingAmount = (valueUsdAfterDeduction: number) :number=>{
-  const originalValue = valueUsdAfterDeduction * 100 /(100- referralSharePercentage)
+export const calculateReferralRewardFromRemainingAmount = (valueUsdAfterDeduction: number): number => {
+  const originalValue = valueUsdAfterDeduction * 100 / (100 - referralSharePercentage)
   return calculateReferralReward(originalValue)
 }
