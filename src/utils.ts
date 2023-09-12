@@ -75,14 +75,16 @@ export const getDonationsForSmartContractParams = (params: {
 export const createSmartContractCallAddBatchParams = async (params: {
   nrGIVAddress: string,
   donationsWithShare: DonationResponse[],
-  givRelayerAddress: string
+  givRelayerAddress: string,
+  network : 'gnosis' | 'optimism'
 }, maxAddressesPerFunctionCall: number): Promise<{
   result: string,
   hashParams: string
 }> => {
   const {
     donationsWithShare,
-    givRelayerAddress
+    givRelayerAddress,
+    network
   } = params;
   if (donationsWithShare.length === 0) {
     throw new Error('There is no eligible donations in this time range')
@@ -92,7 +94,11 @@ export const createSmartContractCallAddBatchParams = async (params: {
   const hashParams: any = {
     ipfsLink: '',
   }
-  let nonce = await getLastNonceForWalletAddress(givRelayerAddress)
+  console.log('createSmartContractCallAddBatchParams', {
+    givRelayerAddress,
+    network
+  })
+  let nonce = await getLastNonceForWalletAddress(givRelayerAddress, network)
   const rawDatasForHash = []
   for (let i = 0; i < partNumbers; i++) {
     const smartContractBatchData = getSmartContractAddBatchesHash(
@@ -182,11 +188,21 @@ function hashBatchEthers(params: {
 const xdaiWeb3NodeUrl = process.env.XDAI_NODE_HTTP_URL
 const xdaiWeb3 = new Web3(xdaiWeb3NodeUrl);
 
-export const getLastNonceForWalletAddress = async (walletAddress: string): Promise<number> => {
-  const userTransactionsCount = await xdaiWeb3.eth.getTransactionCount(
+const optimismWeb3NodeUrl = process.env.OPTIMISM_NODE_HTTP_URL
+const optimismWeb3 = new Web3(optimismWeb3NodeUrl);
+
+export const getLastNonceForWalletAddress = async (walletAddress: string, chain:'gnosis' | 'optimism'): Promise<number> => {
+  const web3Provider = chain === 'optimism' ? optimismWeb3 :xdaiWeb3
+  const userTransactionsCount = await web3Provider.eth.getTransactionCount(
     walletAddress
   );
-  return userTransactionsCount - 1
+  console.log('getLastNonceForWalletAddress ', {
+    userTransactionsCount,
+    chain,
+    walletAddress
+  })
+  // prevent sending negative nonce
+  return Math.max(userTransactionsCount - 1 , 0)
 }
 
 

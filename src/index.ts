@@ -213,7 +213,8 @@ app.get(`/calculate`,
             {
               nrGIVAddress,
               donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: givRelayerAddress as string
+              givRelayerAddress: givRelayerAddress as string,
+              network:'optimism'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -224,7 +225,8 @@ app.get(`/calculate`,
             {
               nrGIVAddress,
               donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: givRelayerAddress as string
+              givRelayerAddress: givRelayerAddress as string,
+              network:'gnosis'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
