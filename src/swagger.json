@@ -35,12 +35,6 @@
             "in": "query"
           },
           {
-            "name": "givRelayerAddress",
-            "type": "string",
-            "default": "0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7",
-            "in": "query"
-          },
-          {
             "name": "maxAddressesPerFunctionCall",
             "type": "string",
             "default": "200",
