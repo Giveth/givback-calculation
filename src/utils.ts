@@ -224,6 +224,8 @@ export const getNetworkNameById = (networkId: number): string => {
       return 'polygon'
     case 42220:
       return 'celo'
+    case 61 :
+      return 'etc'
     default:
       return 'unknown network'
   }
