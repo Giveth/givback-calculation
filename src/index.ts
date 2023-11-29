@@ -33,6 +33,7 @@ import {
 
 import {getPurpleList} from './commonServices'
 import {get_dumpers_list} from "./subgraphService";
+import {getAssignHistory} from "./givFarm/givFarmService";
 
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
 const {version} = require('../package.json');
@@ -499,6 +500,22 @@ app.get('/givDumpers', async (req: Request, res: Response) => {
       })
     )
   } catch (e: any) {
+    res.status(400).send({errorMessage: e.message})
+  }
+})
+
+app.get('/token_distro_assign_histories', async (req: Request, res: Response) => {
+  try {
+    const {tokenDistroAddress, uniPoolAddress, rpcUrl} = req.query;
+    res.json(
+      await getAssignHistory({
+        tokenDistroAddress : tokenDistroAddress as string,
+        uniPoolAddress: uniPoolAddress as string,
+        rpcUrl: rpcUrl as string
+      })
+    )
+  } catch (e: any) {
+    console.log('error happened', e)
     res.status(400).send({errorMessage: e.message})
   }
 })
