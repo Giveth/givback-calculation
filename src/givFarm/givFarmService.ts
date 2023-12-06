@@ -73,7 +73,6 @@ export async function getAssignHistory(params: {
   });
 
   console.log("###############################################");
-  console.log("Total: ", total / 10n ** 18n);
   console.log("Total: ", Ethers.ethers.formatEther(total.toString()));
   return {
     total: Ethers.ethers.formatEther(total.toString()),
