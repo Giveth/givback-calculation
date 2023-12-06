@@ -56,8 +56,8 @@ export async function getAssignHistory(params: {
     const amountBigInt = BigInt(args.args[2]);
 
     // Perform division using BigInt and then convert to Number for storing
-    const amountNumber = Number(amountBigInt / 10n ** 18n);
-
+    // const amountNumber = Number(amountBigInt / 10n ** 18n);
+    const amountNumber = Ethers.ethers.formatEther(amountBigInt.toString());
     assignHistory.push({
       blockNumber,
       transactionHash,
@@ -74,8 +74,9 @@ export async function getAssignHistory(params: {
 
   console.log("###############################################");
   console.log("Total: ", total / 10n ** 18n);
+  console.log("Total: ", Ethers.ethers.formatEther(total.toString()));
   return {
-    total: Number(total / 10n ** 18n),
+    total: Ethers.ethers.formatEther(total.toString()),
     assignHistory: assignHistory.reverse()
   }
 }
