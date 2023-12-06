@@ -90,7 +90,11 @@ export const createSmartContractCallAddBatchParams = async (params: {
     } = params;
     if (donationsWithShare.length === 0) {
       throw new Error('There is no eligible donations in this time range')
+    }
 
+    // Make sure maxAddressesPerFunctionCall is a number and is greater than 0
+    if (!Number(maxAddressesPerFunctionCall) || maxAddressesPerFunctionCall <= 0) {
+      throw new Error('maxAddressesPerFunctionCall should be a number greater than 0')
     }
     const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
     const hashParams: any = {
