@@ -1,9 +1,10 @@
 import {DonationResponse, GivethIoDonation, MinimalDonation} from "./types/general";
+import {hexlify, ethers} from "ethers";
+import { keccak256 } from "@ethersproject/keccak256";
+import { toUtf8Bytes } from "@ethersproject/strings";
 
-const {ethers} = require("ethers");
 const Web3 = require('web3');
 const {pinJSONToIPFS} = require("./pinataUtils");
-const {hexlify, solidityKeccak256} = ethers.utils;
 const _ = require('underscore');
 
 
@@ -81,46 +82,55 @@ export const createSmartContractCallAddBatchParams = async (params: {
   result: string,
   hashParams: string
 }> => {
-  const {
-    donationsWithShare,
-    givRelayerAddress,
-    network
-  } = params;
-  if (donationsWithShare.length === 0) {
-    throw new Error('There is no eligible donations in this time range')
-
-  }
-  const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
-  const hashParams: any = {
-    ipfsLink: '',
-  }
-  console.log('createSmartContractCallAddBatchParams', {
-    givRelayerAddress,
-    network
-  })
-  let nonce = await getLastNonceForWalletAddress(givRelayerAddress, network)
-  const rawDatasForHash = []
-  for (let i = 0; i < partNumbers; i++) {
-    const smartContractBatchData = getSmartContractAddBatchesHash(
-      {
-        donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall),
-        nonce
-      }
-    )
-    const hash = smartContractBatchData.hash
-    rawDatasForHash.push(smartContractBatchData.rawData)
-    hashParams[hash] = {
-      rawData: smartContractBatchData.rawData
+  try {
+    const {
+      donationsWithShare,
+      givRelayerAddress,
+      network
+    } = params;
+    if (donationsWithShare.length === 0) {
+      throw new Error('There is no eligible donations in this time range')
     }
-    nonce += 1
+
+    // Make sure maxAddressesPerFunctionCall is a number and is greater than 0
+    if (!Number(maxAddressesPerFunctionCall) || maxAddressesPerFunctionCall <= 0) {
+      throw new Error('maxAddressesPerFunctionCall should be a number greater than 0')
+    }
+    const partNumbers = donationsWithShare.length / maxAddressesPerFunctionCall
+    const hashParams: any = {
+      ipfsLink: '',
+    }
+    console.log('createSmartContractCallAddBatchParams', {
+      givRelayerAddress,
+      network
+    })
+    let nonce = await getLastNonceForWalletAddress(givRelayerAddress, network)
+    const rawDatasForHash = []
+    for (let i = 0; i < partNumbers; i++) {
+      const smartContractBatchData = getSmartContractAddBatchesHash(
+        {
+          donationsWithShare: donationsWithShare.slice(i * maxAddressesPerFunctionCall, (i + 1) * maxAddressesPerFunctionCall),
+          nonce
+        }
+      )
+      const hash = smartContractBatchData.hash
+      rawDatasForHash.push(smartContractBatchData.rawData)
+      hashParams[hash] = {
+        rawData: smartContractBatchData.rawData
+      }
+      nonce += 1
+    }
+    const ipfsHash = await pinJSONToIPFS({jsonBody: rawDatasForHash})
+    const result = `load giveth; giveth:initiate-givbacks ${ipfsHash} --relayer ${givRelayerAddress}`;
+    hashParams.ipfsLink = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`
+    return {
+      result,
+      hashParams
+    };
+  } catch (e) {
+    console.log('createSmartContractCallAddBatchParams', e)
+    throw e
   }
-  const ipfsHash = await pinJSONToIPFS({jsonBody: rawDatasForHash})
-  const result = `load giveth; giveth:initiate-givbacks ${ipfsHash} --relayer ${givRelayerAddress}`;
-  hashParams.ipfsLink = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`
-  return {
-    result,
-    hashParams
-  };
 }
 
 
@@ -174,10 +184,11 @@ function hashBatchEthers(params: {
     amounts
   } = params
   console.log('hashBatchEthers() input', {nonce, recipients, amounts})
+  const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "address[]", "uint256[]"], [nonce, recipients, amounts]);
+
   const hash = hexlify(
-    solidityKeccak256(
-      ["uint256", "address[]", "uint256[]"],
-      [nonce, recipients, amounts],
+    keccak256(
+      toUtf8Bytes(encodedData)
     ),
   );
   console.log('hashBatchEthers() hash', hash);
@@ -227,7 +238,7 @@ export const getNetworkNameById = (networkId: number): string => {
     case 61 :
       return 'etc'
     default:
-      return 'unknown network'
+      return String(networkId)
   }
 }
 
