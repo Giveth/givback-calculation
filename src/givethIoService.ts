@@ -1,4 +1,8 @@
-import {FormattedDonation, GivbackFactorParams, GivethIoDonation, MinimalDonation, Project} from "./types/general";
+import {FormattedDonation, GivbackFactorParams, GivethIoDonation, MinimalDonation, Project, GIVbacksRound} from "./types/general";
+import {GIVETH_TOKEN_DISTRO_ADDRESS} from "./subgraphService";
+import {ethers} from 'ethers'
+import TokenDistroJSON from '../abi/TokenDistroV2.json'
+require('dotenv').config()
 
 const {gql, request} = require('graphql-request');
 const moment = require('moment')
@@ -474,3 +478,49 @@ export const getAllProjectsSortByRank = async (): Promise<Project[]> => {
     throw new Error('Error in getting getAllProjectsSortByRank from impact-graph')
   }
 }
+
+export const getGIVbacksRound = async (round: number): Promise<GIVbacksRound> => {
+  const twoWeeksInMilliseconds = 1209600000
+  const ROUND_20_OFFSET = 345600000; //4 days in miliseconds - At round 20 we changed the rounds from Fridays to Tuesdays 
+
+  let gnosisProvider = new ethers.providers.JsonRpcProvider(process.env.XDAI_NODE_HTTP_URL);
+  const tokenDistroGC = new ethers.Contract(GIVETH_TOKEN_DISTRO_ADDRESS, TokenDistroJSON.abi, gnosisProvider);
+  let startTime: any
+  try {
+    startTime = await tokenDistroGC.startTime();
+  } catch(e) {
+    console.log('Error in getting startTime', e)
+    throw new Error('Error in getting startTime')
+  }
+  const startDate = new Date(startTime.toNumber() * 1000);
+  const afterRound20 = startDate.getMilliseconds() + ROUND_20_OFFSET;
+
+  const getRoundDates = (round: number): Date[] => {
+    let roundStartDate: Date;
+    let roundEndDate: Date;
+    if (round < 1) {
+      throw new Error('Invalid round number')
+    
+    }
+    else if (round < 20) {
+      roundStartDate = new Date(startDate.getTime() + (round -1) * twoWeeksInMilliseconds); 
+      roundEndDate = new Date(startDate.getTime() + round * twoWeeksInMilliseconds - 1000);
+    }
+    else {
+      roundStartDate = new Date(startDate.getTime() + (round-1) * twoWeeksInMilliseconds + afterRound20);
+      roundEndDate = new Date(startDate.getTime() + round * twoWeeksInMilliseconds + afterRound20 - 1000);
+    }
+    return [roundStartDate, roundEndDate];
+  }
+
+  const [roundStartDate, roundEndDate] = getRoundDates(round);
+
+  return {
+    round,
+    start: roundStartDate.toISOString(),
+    end: roundEndDate.toISOString()
+  }
+}
+
+
+

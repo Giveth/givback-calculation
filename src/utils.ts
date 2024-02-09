@@ -5,7 +5,7 @@ const Web3 = require('web3');
 const {pinJSONToIPFS} = require("./pinataUtils");
 const {hexlify, solidityKeccak256} = ethers.utils;
 const _ = require('underscore');
-
+const axios = require('axios');
 
 export const convertMinimalDonationToDonationResponse  = (params :{
   minimalDonationsArray : MinimalDonation[],
@@ -249,4 +249,14 @@ export const calculateReferralReward = (valueUsd: number): number => {
 export const calculateReferralRewardFromRemainingAmount = (valueUsdAfterDeduction: number): number => {
   const originalValue = valueUsdAfterDeduction * 100 / (100 - referralSharePercentage)
   return calculateReferralReward(originalValue)
+}
+
+export const getBlockbyTimestamp = async (timestamp: number, chainId: number) => {
+  try{
+    const response = await axios.get(`https://api.findblock.xyz/v1/chain/${chainId}/block/before/${timestamp}?inclusive=true`)
+    return response.data.number
+  } catch(e) {
+    console.log('getBlockbyTimestamp error', e)
+    return 0
+  }
 }
