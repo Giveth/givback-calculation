@@ -21,6 +21,11 @@ import {
 } from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
+const twoWeeksInMilliseconds = 1209600000
+const ROUND_20_OFFSET = 345600000; //4 days in miliseconds - At round 20 we changed the rounds from Fridays to Tuesdays 
+const gnosisProvider = new ethers.providers.JsonRpcProvider(process.env.XDAI_NODE_HTTP_URL);
+const tokenDistroGC = new ethers.Contract(GIVETH_TOKEN_DISTRO_ADDRESS, TokenDistroJSON.abi, gnosisProvider);
+
 
 /**
  *
@@ -479,25 +484,26 @@ export const getAllProjectsSortByRank = async (): Promise<Project[]> => {
   }
 }
 
-export const getGIVbacksRound = async (round: number): Promise<GIVbacksRound> => {
-  const twoWeeksInMilliseconds = 1209600000
-  const ROUND_20_OFFSET = 345600000; //4 days in miliseconds - At round 20 we changed the rounds from Fridays to Tuesdays 
-
-  let gnosisProvider = new ethers.providers.JsonRpcProvider(process.env.XDAI_NODE_HTTP_URL);
-  const tokenDistroGC = new ethers.Contract(GIVETH_TOKEN_DISTRO_ADDRESS, TokenDistroJSON.abi, gnosisProvider);
-  let startTime: any
-  try {
-    startTime = await tokenDistroGC.startTime();
-  } catch(e) {
-    console.log('Error in getting startTime', e)
-    throw new Error('Error in getting startTime')
+export const getStartTime = async (retries = 5) => {
+  let lastError;
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await tokenDistroGC.startTime();
+    } catch (e) {
+      console.log(`Error in getting startTime, attempt ${i + 1}`, e);
+      lastError = e;
+    }
   }
+  console.log('All attempts failed', lastError);
+  throw new Error('Error in getting startTime');
+}
+
+export const getGIVbacksRound = async (round: number): Promise<GIVbacksRound> => {
+  let roundStartDate: Date;
+  let roundEndDate: Date;
+  const startTime = await getStartTime();
   const startDate = new Date(startTime.toNumber() * 1000);
   const afterRound20 = startDate.getMilliseconds() + ROUND_20_OFFSET;
-
-  const getRoundDates = (round: number): Date[] => {
-    let roundStartDate: Date;
-    let roundEndDate: Date;
     if (round < 1) {
       throw new Error('Invalid round number')
     
@@ -510,10 +516,6 @@ export const getGIVbacksRound = async (round: number): Promise<GIVbacksRound> =>
       roundStartDate = new Date(startDate.getTime() + (round-1) * twoWeeksInMilliseconds + afterRound20);
       roundEndDate = new Date(startDate.getTime() + round * twoWeeksInMilliseconds + afterRound20 - 1000);
     }
-    return [roundStartDate, roundEndDate];
-  }
-
-  const [roundStartDate, roundEndDate] = getRoundDates(round);
 
   return {
     round,
@@ -522,5 +524,14 @@ export const getGIVbacksRound = async (round: number): Promise<GIVbacksRound> =>
   }
 }
 
+export const getCurrentGIVbacksRound = async (): Promise<GIVbacksRound> => {
+  const now = new Date().getTime();
+  const startTime = await getStartTime();
+  const startDate = new Date(startTime.toNumber() * 1000);
+  startDate.setTime(startDate.getTime() + ROUND_20_OFFSET);
+  const deltaT = now - startDate.getTime();
+  const _round = Math.floor(deltaT / twoWeeksInMilliseconds) + 1;
+  return getGIVbacksRound(_round)
+}
 
 

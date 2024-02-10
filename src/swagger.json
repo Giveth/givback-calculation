@@ -393,6 +393,16 @@
 
         }
       }
+    },
+    "/current-round": {
+      "get": {
+        "description": "It returns current round number",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    }
     }
   }
-}

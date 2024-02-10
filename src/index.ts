@@ -1,6 +1,6 @@
 import {DonationResponse, FormattedDonation, MinimalDonation} from "./types/general";
 import {Request, Response} from "express";
-import {getGIVbacksRound} from "./givethIoService";
+import {getCurrentGIVbacksRound, getGIVbacksRound} from "./givethIoService";
 import {getBlockbyTimestamp} from "./utils";
 
 const dotenv = require('dotenv')
@@ -747,6 +747,16 @@ app.get(`/calculate-updated`,
       })
     }
   })
+
+app.get(`/current-round`, async (req: Request, res: Response) => {
+  try {
+    const result = await getCurrentGIVbacksRound()
+    res.send(result)
+    } catch (e: any) {
+    res.status(400).send({errorMessage: e.message})
+    }
+  }
+)
 
 
 app.listen(3000, () => {
