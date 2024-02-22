@@ -1,5 +1,5 @@
 import { getCurrentGIVbacksRound, getGIVbacksRound } from "../src/givethIoService";
-import { getBlockbyTimestamp } from "../src/utils";
+import { getBlockByTimestamp } from "../src/utils";
 import {getEthGivPriceInMainnet, getEthPriceTimeStamp} from "../src/priceService";
 // getGIVbacksRound(55).then((res) => {
 //   console.log("res", res);

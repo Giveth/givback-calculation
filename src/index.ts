@@ -1,7 +1,7 @@
 import {DonationResponse, FormattedDonation, MinimalDonation} from "./types/general";
 import {Request, Response} from "express";
 import {getCurrentGIVbacksRound, getGIVbacksRound} from "./givethIoService";
-import {getBlockbyTimestamp} from "./utils";
+import {getBlockByTimestamp} from "./utils";
 
 const dotenv = require('dotenv')
 if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'staging') {
@@ -10,6 +10,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'staging')
 }
 
 const express = require('express');
+const moment = require('moment')
 const _ = require('underscore');
 const swaggerUi = require('swagger-ui-express');
 const {parse} = require('json2csv');
@@ -35,7 +36,7 @@ import {
 
 import {getPurpleList} from './commonServices'
 import {get_dumpers_list} from "./subgraphService";
-import { get } from "https";
+import {get} from "https";
 
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
 const {version} = require('../package.json');
@@ -127,6 +128,13 @@ app.get(`/calculate`,
         chain: "all-other-chains"
       });
 
+      console.log('***new webservice donations*** old', {
+        otherChainDonations: otherChainDonations.length,
+        beginDate: startDate as string,
+        endDate: endDate as string,
+      })
+
+
       const totalDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
@@ -143,6 +151,14 @@ app.get(`/calculate`,
         givWorth / totalDonationsAmountAfterGivbackFactor
       )
 
+      console.log('***new webservice donations*** old', {
+        totalDonationsAmount,
+        totalDonationsAmountAfterGivbackFactor,
+        maxGivbackFactorPercentage,
+        givWorth,
+        givAvailable,
+        givPrice
+      })
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
       const groupByGiverAddressForOptimismDonations = _.groupBy(optimismDonations, 'giverAddress')
@@ -208,6 +224,8 @@ app.get(`/calculate`,
       }
       const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
       const response = {
+        endDate,
+        startDate,
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
@@ -217,7 +235,9 @@ app.get(`/calculate`,
               nrGIVAddress,
               donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: givRelayerAddress as string,
-              network:'optimism'
+              network: 'optimism',
+              startDate: startDate as string,
+              endDate: endDate as string
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -229,7 +249,9 @@ app.get(`/calculate`,
               nrGIVAddress,
               donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: givRelayerAddress as string,
-              network:'gnosis'
+              network: 'gnosis',
+              startDate: startDate as string,
+              endDate: endDate as string
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -518,14 +540,21 @@ app.get(`/calculate-updated`,
 
       const givAvailable = Number(req.query.givAvailable)
       const {start, end} = await getGIVbacksRound(Number(roundNumber))
-      const endDate = Math.floor(new Date(end).getTime() / 1000)
-      const priceBlock = await getBlockbyTimestamp(endDate, 1)
+      const endDate = moment(end, 'YYYY/MM/DD-HH:mm:ss')
+      const endDateTimestamp = endDate.unix()
+      const priceBlock = await getBlockByTimestamp(endDateTimestamp, 1)
       console.log("priceBlock", priceBlock);
       const givPriceInETH = await getEthGivPriceInMainnet(priceBlock)
-      const ethPrice = await getEthPriceTimeStamp(endDate)
+      const ethPrice = await getEthPriceTimeStamp(endDateTimestamp)
+      console.log("/calculate-updated prices", {
+        ethPrice,
+        givPriceInETH,
+        priceBlock,
+        endDateTimestamp
+      });
       const givPrice = givPriceInETH * ethPrice
       const givWorth = givAvailable * givPrice
-  
+
 
       const tokens = (niceWhitelistTokens as string).split(',')
       const slugs = (niceProjectSlugs as string).split(',')
@@ -591,6 +620,13 @@ app.get(`/calculate-updated`,
         chain: "all-other-chains"
       });
 
+      console.log('***new webservice donations*** new', {
+        otherChainDonations: otherChainDonations.length,
+        start,
+        end
+      })
+
+
       const totalDonations = await getDonationsReport({
         beginDate: start,
         endDate: end,
@@ -606,6 +642,14 @@ app.get(`/calculate-updated`,
       const maxGivbackFactorPercentage = Math.min(1,
         givWorth / totalDonationsAmountAfterGivbackFactor
       )
+      console.log('***new webservice donations*** new', {
+        totalDonationsAmount,
+        totalDonationsAmountAfterGivbackFactor,
+        maxGivbackFactorPercentage,
+        givWorth
+        , givAvailable,
+        givPrice
+      })
 
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
@@ -656,6 +700,8 @@ app.get(`/calculate-updated`,
         givPrice,
         raisedValueSum
       })
+      console.log('**allOtherChainsDonationsWithShare**', allOtherChainsDonationsWithShare.length)
+      console.log('**allOtherChainsMinimalDonations**', allOtherChainsMinimalDonations.length)
 
       const niceDonationsWithShareFormatted: DonationResponse[] = []
       for (const niceShareItem of niceDonationsWithShare) {
@@ -672,6 +718,8 @@ app.get(`/calculate-updated`,
       }
       const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
       const response = {
+        start,
+        end,
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
@@ -681,7 +729,9 @@ app.get(`/calculate-updated`,
               nrGIVAddress,
               donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: givRelayerAddress as string,
-              network:'optimism'
+              network: 'optimism',
+              startDate: start,
+              endDate: end
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -693,7 +743,9 @@ app.get(`/calculate-updated`,
               nrGIVAddress,
               donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: givRelayerAddress as string,
-              network:'gnosis'
+              network: 'gnosis',
+              startDate: start,
+              endDate: end
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -749,11 +801,11 @@ app.get(`/calculate-updated`,
   })
 
 app.get(`/current-round`, async (req: Request, res: Response) => {
-  try {
-    const result = await getCurrentGIVbacksRound()
-    res.send(result)
+    try {
+      const result = await getCurrentGIVbacksRound()
+      res.send(result)
     } catch (e: any) {
-    res.status(400).send({errorMessage: e.message})
+      res.status(400).send({errorMessage: e.message})
     }
   }
 )
@@ -762,4 +814,3 @@ app.get(`/current-round`, async (req: Request, res: Response) => {
 app.listen(3000, () => {
   console.log('listening to port 3000')
 })
-  
