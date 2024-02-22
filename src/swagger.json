@@ -35,12 +35,6 @@
             "in": "query"
           },
           {
-            "name": "givRelayerAddress",
-            "type": "string",
-            "default": "0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7",
-            "in": "query"
-          },
-          {
             "name": "maxAddressesPerFunctionCall",
             "type": "string",
             "default": "200",
@@ -327,6 +321,36 @@
 
         "responses": {
           "200": {
+          }
+        }
+      }
+    },
+    "/token_distro_assign_histories": {
+      "get": {
+        "tags": ["GivFarm utilities"],
+        "description":"Get all token distribution assign histories",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "tokenDistroAddress",
+            "description": "Default one is tokenDistro address on Gnosis chain",
+            "default": "0xc0dbDcA66a0636236fAbe1B3C16B1bD4C84bB1E1"
+          },
+          {
+            "in": "query",
+            "name": "uniPoolAddress",
+            "default": "0xD93d3bDBa18ebcB3317a57119ea44ed2Cf41C2F2",
+            "description": "Unipool or GivPower, default one is GivPower address on Gnosis chain"
+          },
+          {
+            "in": "query",
+            "name": "rpcUrl",
+            "default": "https://rpc.gnosischain.com"
+          }
+        ],
+        "responses": {
+          "200": {
+
           }
         }
       }
