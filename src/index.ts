@@ -37,6 +37,7 @@ import {
 import {getPurpleList} from './commonServices'
 import {get_dumpers_list} from "./subgraphService";
 import {get} from "https";
+import {getAssignHistory} from "./givFarm/givFarmService";
 
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
 const {version} = require('../package.json');
@@ -56,7 +57,6 @@ app.get(`/calculate`,
       const {
         download, endDate, startDate,
         maxAddressesPerFunctionCall,
-        givRelayerAddress,
         niceWhitelistTokens,
         niceProjectSlugs, nicePerDollar,
       } = req.query;
@@ -128,13 +128,6 @@ app.get(`/calculate`,
         chain: "all-other-chains"
       });
 
-      console.log('***new webservice donations*** old', {
-        otherChainDonations: otherChainDonations.length,
-        beginDate: startDate as string,
-        endDate: endDate as string,
-      })
-
-
       const totalDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
@@ -151,14 +144,6 @@ app.get(`/calculate`,
         givWorth / totalDonationsAmountAfterGivbackFactor
       )
 
-      console.log('***new webservice donations*** old', {
-        totalDonationsAmount,
-        totalDonationsAmountAfterGivbackFactor,
-        maxGivbackFactorPercentage,
-        givWorth,
-        givAvailable,
-        givPrice
-      })
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
       const groupByGiverAddressForOptimismDonations = _.groupBy(optimismDonations, 'giverAddress')
@@ -223,9 +208,11 @@ app.get(`/calculate`,
         })
       }
       const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
+
+      // https://github.com/Giveth/givback-calculation/issues/35#issuecomment-1716106403
+      const optimismRelayerAddress = '0xf13e93af5e706ab3073e393e77bb2d7ce7bec01f'
+      const gnosisRelayerAddress = '0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7'
       const response = {
-        endDate,
-        startDate,
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
@@ -234,10 +221,8 @@ app.get(`/calculate`,
             {
               nrGIVAddress,
               donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: givRelayerAddress as string,
-              network: 'optimism',
-              startDate: startDate as string,
-              endDate: endDate as string
+              givRelayerAddress: optimismRelayerAddress,
+              network:'optimism'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -248,10 +233,8 @@ app.get(`/calculate`,
             {
               nrGIVAddress,
               donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: givRelayerAddress as string,
-              network: 'gnosis',
-              startDate: startDate as string,
-              endDate: endDate as string
+              givRelayerAddress: gnosisRelayerAddress,
+              network:'gnosis'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -525,6 +508,22 @@ app.get('/givDumpers', async (req: Request, res: Response) => {
   }
 })
 
+app.get('/token_distro_assign_histories', async (req: Request, res: Response) => {
+  try {
+    const {tokenDistroAddress, uniPoolAddress, rpcUrl} = req.query;
+    res.json(
+      await getAssignHistory({
+        tokenDistroAddress : tokenDistroAddress as string,
+        uniPoolAddress: uniPoolAddress as string,
+        rpcUrl: rpcUrl as string
+      })
+    )
+  } catch (e: any) {
+    console.log('error happened', e)
+    res.status(400).send({errorMessage: e.message})
+  }
+})
+
 
 app.get(`/calculate-updated`,
   async (req: Request, res: Response) => {
@@ -533,7 +532,6 @@ app.get(`/calculate-updated`,
       const {
         download, roundNumber,
         maxAddressesPerFunctionCall,
-        givRelayerAddress,
         niceWhitelistTokens,
         niceProjectSlugs, nicePerDollar,
       } = req.query;
@@ -558,7 +556,8 @@ app.get(`/calculate-updated`,
 
       const tokens = (niceWhitelistTokens as string).split(',')
       const slugs = (niceProjectSlugs as string).split(',')
-
+      console.log('beginDate', start)
+      console.log('endDate', end)
       const givethDonationsForNice = await getDonationsReport(
         {
           beginDate: start,
@@ -717,6 +716,9 @@ app.get(`/calculate-updated`,
         })
       }
       const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
+      const optimismRelayerAddress = '0xf13e93af5e706ab3073e393e77bb2d7ce7bec01f'
+      const gnosisRelayerAddress = '0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7'
+
       const response = {
         start,
         end,
@@ -728,10 +730,8 @@ app.get(`/calculate-updated`,
             {
               nrGIVAddress,
               donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: givRelayerAddress as string,
-              network: 'optimism',
-              startDate: start,
-              endDate: end
+              givRelayerAddress: optimismRelayerAddress,
+              network:'optimism'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -742,10 +742,8 @@ app.get(`/calculate-updated`,
             {
               nrGIVAddress,
               donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: givRelayerAddress as string,
-              network: 'gnosis',
-              startDate: start,
-              endDate: end
+              givRelayerAddress: gnosisRelayerAddress,
+              network:'gnosis'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),

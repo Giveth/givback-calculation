@@ -7,8 +7,8 @@ import {
   GIVbacksRound
 } from "./types/general";
 import {GIVETH_TOKEN_DISTRO_ADDRESS} from "./subgraphService";
-import {ethers} from 'ethers'
 import TokenDistroJSON from '../abi/TokenDistroV2.json'
+const Ethers = require("ethers");
 
 require('dotenv').config()
 
@@ -29,10 +29,12 @@ import {
 } from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
+const xdaiNodeHttpUrl = process.env.XDAI_NODE_HTTP_URL
 const twoWeeksInMilliseconds = 1209600000
+console.log()
 const ROUND_20_OFFSET = 345600000; //4 days in miliseconds - At round 20 we changed the rounds from Fridays to Tuesdays
-const gnosisProvider = new ethers.providers.JsonRpcProvider(process.env.XDAI_NODE_HTTP_URL);
-const tokenDistroGC = new ethers.Contract(GIVETH_TOKEN_DISTRO_ADDRESS, TokenDistroJSON.abi, gnosisProvider);
+const gnosisProvider = new Ethers.JsonRpcProvider(xdaiNodeHttpUrl);
+const tokenDistroGC = new Ethers.Contract(GIVETH_TOKEN_DISTRO_ADDRESS, TokenDistroJSON.abi, gnosisProvider);
 
 
 /**
@@ -496,7 +498,9 @@ export const getStartTime = async (retries = 5): Promise<number> => {
   let lastError;
   for (let i = 0; i < retries; i++) {
     try {
-      return await tokenDistroGC.startTime();
+      const startTime = await tokenDistroGC.startTime();
+      console.log('startTime', startTime);
+      return Number(startTime) as number;
     } catch (e) {
       console.log(`Error in getting startTime, attempt ${i + 1}`, e);
       lastError = e;

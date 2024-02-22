@@ -17,7 +17,7 @@
     "@uniswap/v3-sdk": "^3.8.1",
     "axios": "^0.21.4",
     "dotenv": "^10.0.0",
-    "ethers": "^5.6.3",
+    "ethers": "6.9.0",
     "express": "^4.17.1",
     "graphql": "^15.6.0",
     "graphql-request": "^3.5.0",
