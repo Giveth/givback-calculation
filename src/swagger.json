@@ -354,6 +354,73 @@
           }
         }
       }
+    },
+    "/calculate-updated": {
+      "get": {
+        "description": "It returns both givback and NICE results",
+        "parameters": [
+          {
+            "name": "roundNumber",
+            "type": "number",
+            "default": "50",
+            "in": "query"
+          },
+          {
+            "name": "givAvailable",
+            "type": "string",
+            "default": "1000000",
+            "in": "query"
+          },
+          {
+            "name": "maxAddressesPerFunctionCall",
+            "type": "string",
+            "default": "200",
+            "in": "query"
+          },
+          {
+            "name": "nicePerDollar",
+            "type": "string",
+            "default": "1",
+            "in": "query"
+          },
+          {
+            "name": "niceWhitelistTokens",
+            "type": "string",
+            "default": "DAI,WXDAI,XDAI,USDC",
+            "in": "query"
+          },
+          {
+            "name": "niceProjectSlugs",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
+            "in": "query"
+          },
+          {
+            "name": "download",
+            "type": "string",
+            "description": "If you want to see json here set no, but if you want to download a file set yes",
+            "default": "no",
+            "enum": ["yes","no"],
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+
+        }
+      }
+    },
+    "/current-round": {
+      "get": {
+        "description": "It returns current round number",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    }
     }
   }
-}

@@ -3,19 +3,22 @@ import {hexlify, ethers} from "ethers";
 import { keccak256 } from "@ethersproject/keccak256";
 import { toUtf8Bytes } from "@ethersproject/strings";
 
+
 const Web3 = require('web3');
 const {pinJSONToIPFS} = require("./pinataUtils");
 const _ = require('underscore');
+const axios = require('axios');
 
-
-export const convertMinimalDonationToDonationResponse  = (params :{
-  minimalDonationsArray : MinimalDonation[],
-  niceDonationsWithShare ?: MinimalDonation[],
+export const convertMinimalDonationToDonationResponse = (params: {
+  minimalDonationsArray: MinimalDonation[],
+  niceDonationsWithShare?: MinimalDonation[],
   raisedValueSum: number,
   givPrice: number
 }): DonationResponse[] => {
-  const {minimalDonationsArray, raisedValueSum,
-    givPrice} = params
+  const {
+    minimalDonationsArray, raisedValueSum,
+    givPrice
+  } = params
   return minimalDonationsArray.map((item: MinimalDonation) => {
     const share = item.totalDonationsUsdValueAfterGivFactor / raisedValueSum;
     const givback = (item.totalDonationsUsdValueAfterGivFactor / givPrice)
@@ -134,6 +137,7 @@ export const createSmartContractCallAddBatchParams = async (params: {
 }
 
 
+
 const getSmartContractAddBatchesHash = (params: {
   donationsWithShare: DonationResponse[],
   nonce: number
@@ -152,6 +156,7 @@ const getSmartContractAddBatchesHash = (params: {
     recipients: donationsWithShare.map(({giverAddress}) => giverAddress),
 
   }
+  console.log('rawData \n', rawData )
   const hash = hashBatchEthers(rawData)
   return {hash, rawData}
 }
@@ -202,8 +207,8 @@ const xdaiWeb3 = new Web3(xdaiWeb3NodeUrl);
 const optimismWeb3NodeUrl = process.env.OPTIMISM_NODE_HTTP_URL
 const optimismWeb3 = new Web3(optimismWeb3NodeUrl);
 
-export const getLastNonceForWalletAddress = async (walletAddress: string, chain:'gnosis' | 'optimism'): Promise<number> => {
-  const web3Provider = chain === 'optimism' ? optimismWeb3 :xdaiWeb3
+export const getLastNonceForWalletAddress = async (walletAddress: string, chain: 'gnosis' | 'optimism'): Promise<number> => {
+  const web3Provider = chain === 'optimism' ? optimismWeb3 : xdaiWeb3
   const userTransactionsCount = await web3Provider.eth.getTransactionCount(
     walletAddress
   );
@@ -213,7 +218,7 @@ export const getLastNonceForWalletAddress = async (walletAddress: string, chain:
     walletAddress
   })
   // prevent sending negative nonce
-  return Math.max(userTransactionsCount - 1 , 0)
+  return Math.max(userTransactionsCount - 1, 0)
 }
 
 
@@ -262,4 +267,16 @@ export const calculateReferralReward = (valueUsd: number): number => {
 export const calculateReferralRewardFromRemainingAmount = (valueUsdAfterDeduction: number): number => {
   const originalValue = valueUsdAfterDeduction * 100 / (100 - referralSharePercentage)
   return calculateReferralReward(originalValue)
+}
+
+export const getBlockByTimestamp = async (timestamp: number, chainId: number) :Promise<number>=> {
+  try {
+    const url = `https://api.findblock.xyz/v1/chain/${chainId}/block/before/${timestamp}?inclusive=true`
+    console.log('getBlockByTimestamp url', url)
+    const response = await axios.get(url)
+    return response.data.number
+  } catch (e) {
+    console.log('getBlockByTimestamp error', e)
+    return 0
+  }
 }
