@@ -113,11 +113,4 @@ export interface Project {
         powerRank: number,
         round: number
     }
-
-}
-
-export interface GIVbacksRound {
-    round: number,
-    start: string,
-    end: string
 }
