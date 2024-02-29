@@ -1,16 +1,4 @@
-import {
-  FormattedDonation,
-  GivbackFactorParams,
-  GivethIoDonation,
-  MinimalDonation,
-  Project,
-  GIVbacksRound
-} from "./types/general";
-import {GIVETH_TOKEN_DISTRO_ADDRESS} from "./subgraphService";
-import TokenDistroJSON from '../abi/TokenDistroV2.json'
-const Ethers = require("ethers");
-
-require('dotenv').config()
+import {FormattedDonation, GivbackFactorParams, GivethIoDonation, MinimalDonation, Project} from "./types/general";
 
 const {gql, request} = require('graphql-request');
 const moment = require('moment')
@@ -29,13 +17,6 @@ import {
 } from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
-const xdaiNodeHttpUrl = process.env.XDAI_NODE_HTTP_URL
-const twoWeeksInMilliseconds = 1209600000
-console.log()
-const ROUND_20_OFFSET = 345600000; //4 days in miliseconds - At round 20 we changed the rounds from Fridays to Tuesdays
-const gnosisProvider = new Ethers.JsonRpcProvider(xdaiNodeHttpUrl);
-const tokenDistroGC = new Ethers.Contract(GIVETH_TOKEN_DISTRO_ADDRESS, TokenDistroJSON.abi, gnosisProvider);
-
 
 /**
  *
@@ -53,7 +34,7 @@ export const getEligibleDonations = async (
     eligible?: boolean,
     disablePurpleList?: boolean,
     justCountListed?: boolean,
-    chain?: "all-other-chains" | "optimism"
+    chain ?: "all-other-chains" |"optimism"
 
   }): Promise<FormattedDonation[]> => {
   try {
@@ -340,7 +321,7 @@ export const getDonationsReport = async (params: {
   niceWhitelistTokens?: string[],
   niceProjectSlugs?: string[],
   applyChainvineReferral?: boolean,
-  chain?: "all-other-chains" | "optimism"
+  chain ?: "all-other-chains" |"optimism"
 }): Promise<MinimalDonation[]> => {
   const {
     beginDate,
@@ -361,34 +342,34 @@ export const getDonationsReport = async (params: {
       })
 
 
-    let donations: FormattedDonation[] = []
-    if (!applyChainvineReferral) {
+    let donations :FormattedDonation[] =[]
+    if (!applyChainvineReferral){
       donations = response
-    } else {
-      for (const donation of response) {
-        if (donation.isReferrerGivbackEligible && donation.referrerWallet) {
+    }else{
+      for (const donation of response){
+        if (donation.isReferrerGivbackEligible &&  donation.referrerWallet){
           // We split givback reward between giver and referrer
           donations.push(
             {
               ...donation,
-              valueUsd: donation.valueUsd - calculateReferralReward(donation.valueUsd),
+              valueUsd : donation.valueUsd - calculateReferralReward(donation.valueUsd),
               referred: true
             },
             {
               ...donation,
-              referrer: true,
-              valueUsd: calculateReferralReward(donation.valueUsd),
+              referrer :true,
+              valueUsd : calculateReferralReward(donation.valueUsd),
               giverAddress: donation.referrerWallet,
-              giverEmail: response.find(d => d.giverAddress === donation.referrerWallet)?.giverEmail || '',
-              giverName: response.find(d => d.giverAddress === donation.referrerWallet)?.giverName || 'Referrer donor',
+              giverEmail: response.find(d => d.giverAddress ===donation.referrerWallet)?.giverEmail || '',
+              giverName: response.find(d => d.giverAddress ===donation.referrerWallet)?.giverName || 'Referrer donor',
             }
           )
-        } else {
+        }else{
           donations.push(donation)
         }
       }
     }
-    console.log('**donations length**', donations.length)
+    console.log('**donations**', donations)
     const groups = _.groupBy(donations, 'giverAddress')
     return _.map(groups, (value: FormattedDonation[], key: string) => {
 
@@ -407,23 +388,23 @@ export const getDonationsReport = async (params: {
         }, 0),
 
         totalReferralAddedUsdValue: _.reduce(value, function (total: number, o: FormattedDonation) {
-          return o.referrer ? total + o.valueUsd : total
+          return o.referrer ?  total + o.valueUsd:  total
         }, 0),
         totalReferralAddedUsdValueAfterGivFactor: _.reduce(value, function (total: number, o: FormattedDonation) {
-          return o.referrer ? total + donationValueAfterGivFactor({
+          return o.referrer  ? total + donationValueAfterGivFactor({
             usdValue: o.valueUsd,
             givFactor: o.givbackFactor
-          }) : total;
+          }) :  total;
         }, 0),
 
         totalReferralDeductedUsdValue: _.reduce(value, function (total: number, o: FormattedDonation) {
-          return o.referred ? total + calculateReferralRewardFromRemainingAmount(o.valueUsd) : total;
+          return o.referred ? total + calculateReferralRewardFromRemainingAmount(o.valueUsd): total;
         }, 0),
         totalReferralDeductedUsdValueAfterGivFactor: _.reduce(value, function (total: number, o: FormattedDonation) {
-          return o.referred ? total + donationValueAfterGivFactor({
+          return  o.referred ? total + donationValueAfterGivFactor({
             usdValue: calculateReferralRewardFromRemainingAmount(o.valueUsd),
             givFactor: o.givbackFactor
-          }) : total;
+          }): total;
         }, 0),
       }
       return result;
@@ -493,62 +474,3 @@ export const getAllProjectsSortByRank = async (): Promise<Project[]> => {
     throw new Error('Error in getting getAllProjectsSortByRank from impact-graph')
   }
 }
-
-export const getStartTime = async (retries = 5): Promise<number> => {
-  let lastError;
-  for (let i = 0; i < retries; i++) {
-    try {
-      const startTime = await tokenDistroGC.startTime();
-      console.log('startTime', startTime);
-      return Number(startTime) as number;
-    } catch (e) {
-      console.log(`Error in getting startTime, attempt ${i + 1}`, e);
-      lastError = e;
-    }
-  }
-  console.log('All attempts failed', lastError);
-  throw new Error('Error in getting startTime');
-}
-
-export const getGIVbacksRound = async (round: number): Promise<GIVbacksRound> => {
-  let roundStartDate: Date;
-  let roundEndDate: Date;
-  const startTime = await getStartTime();
-  const startDate = new Date(startTime * 1000);
-  const afterRound20 = startDate.getMilliseconds() + ROUND_20_OFFSET;
-  if (round < 1) {
-    throw new Error('Invalid round number')
-
-  } else if (round < 20) {
-    roundStartDate = new Date(startDate.getTime() + (round - 1) * twoWeeksInMilliseconds);
-    roundEndDate = new Date(startDate.getTime() + round * twoWeeksInMilliseconds - 1000);
-  } else {
-    roundStartDate = new Date(startDate.getTime() + (round - 1) * twoWeeksInMilliseconds + afterRound20);
-    roundEndDate = new Date(startDate.getTime() + round * twoWeeksInMilliseconds + afterRound20 - 1000);
-  }
-
-  const start = moment(roundStartDate).format('YYYY/MM/DD-HH:mm:ss')
-  const end = moment(roundEndDate).format('YYYY/MM/DD-HH:mm:ss');
-
-  console.log('getGIVbacksRound result', {
-    round,
-    start, end
-  })
-  return {
-    round,
-    start,
-    end
-  }
-}
-
-export const getCurrentGIVbacksRound = async (): Promise<GIVbacksRound> => {
-  const now = new Date().getTime();
-  const startTime = await getStartTime();
-  const startDate = new Date(startTime * 1000);
-  startDate.setTime(startDate.getTime() + ROUND_20_OFFSET);
-  const deltaT = now - startDate.getTime();
-  const _round = Math.floor(deltaT / twoWeeksInMilliseconds) + 1;
-  return getGIVbacksRound(_round)
-}
-
-

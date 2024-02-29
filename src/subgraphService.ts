@@ -3,7 +3,7 @@ import axios from "axios";
 
 const GIV_CONTRACT_ADDRESS = '0x4f4f9b8d5b4d0dc10506e5551b0513b61fd59e75'
 const G_GIV_CONTRACT_ADDRESS = '0xffbabeb49be77e5254333d5fdff72920b989425f'
-export const GIVETH_TOKEN_DISTRO_ADDRESS = '0xc0dbdca66a0636236fabe1b3c16b1bd4c84bb1e1'
+const GIVETH_TOKEN_DISTRO_ADDRESS = '0xc0dbdca66a0636236fabe1b3c16b1bd4c84bb1e1'
 const subgraphAddress = process.env.GIV_ECONOMY_SUBGRAPH_URL as string
 
 const getTokenBalancesQuery = (params: {
