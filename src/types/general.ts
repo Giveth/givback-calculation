@@ -39,6 +39,7 @@ export interface GivethIoDonation {
     transactionNetworkId: number,
     fromWalletAddress: string,
     toWalletAddress: string
+    chainType: string
     source: string,
     user: {
         name: string,
