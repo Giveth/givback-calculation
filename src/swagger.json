@@ -400,7 +400,7 @@
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
-            "enum": ["yes","no"],
+            "enum": ["no", "optimism","all-other-chains", "NICE" ],
             "in": "query"
           }
         ],
