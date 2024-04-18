@@ -24,7 +24,7 @@
     "graphql-request": "^3.5.0",
     "json2csv": "^5.0.6",
     "moment": "^2.29.1",
-    "swagger-ui-express": "^4.1.6",
+    "swagger-ui-express": "4.1.6",
     "ts-node-dev": "^2.0.0",
     "typescript": "^4.5.2",
     "underscore": "^1.13.1",
