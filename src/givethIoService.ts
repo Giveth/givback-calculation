@@ -101,6 +101,10 @@ export const getEligibleDonations = async (
             bottomRankInRound
             isReferrerGivbackEligible
             referrerWallet
+            recurringDonation {
+             id
+             txHash
+            }
             project {
               slug
               verified
@@ -206,7 +210,10 @@ export const getEligibleDonations = async (
         projectLink: `https://giveth.io/project/${item.project.slug}`,
 
         isReferrerGivbackEligible: item.isReferrerGivbackEligible,
-        referrerWallet: item.referrerWallet
+        referrerWallet: item.referrerWallet,
+
+        parentRecurringDonationId: item?.recurringDonation?.id,
+        parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
 
@@ -234,7 +241,10 @@ export const getEligibleDonations = async (
         projectLink: `https://giveth.io/project/${item.project.slug}`,
 
         isReferrerGivbackEligible: item.isReferrerGivbackEligible,
-        referrerWallet: item.referrerWallet
+        referrerWallet: item.referrerWallet,
+
+        parentRecurringDonationId: item?.recurringDonation?.id,
+        parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
     return eligible ?
