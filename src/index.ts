@@ -118,11 +118,11 @@ app.get(`/calculate`,
       //     chain: chain as "all-other-chains" |"optimism"
       // });
       //
-      const optimismDonations = await getDonationsReport({
+      const gnosisDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
-        chain: "optimism"
+        chain: "gnosis"
       });
       const otherChainDonations = await getDonationsReport({
         beginDate: startDate as string,
@@ -149,7 +149,7 @@ app.get(`/calculate`,
 
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
-      const groupByGiverAddressForOptimismDonations = _.groupBy(optimismDonations, 'giverAddress')
+      const groupByGiverAddressForOptimismDonations = _.groupBy(gnosisDonations, 'giverAddress')
       const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
 
 
@@ -305,7 +305,7 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
         endDate: endDate as string,
         eligible,
         justCountListed: justCountListed === 'yes',
-        chain: chain as "all-other-chains" | "optimism"
+        chain: chain as "all-other-chains" | "gnosis"
 
       });
     const donations =
@@ -609,11 +609,11 @@ app.get(`/calculate-updated`,
       //     chain: chain as "all-other-chains" |"optimism"
       // });
       //
-      const optimismDonations = await getDonationsReport({
+      const gnosisDonations = await getDonationsReport({
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        chain: "optimism"
+        chain: "gnosis"
       });
       const otherChainDonations = await getDonationsReport({
         beginDate: start,
@@ -655,7 +655,7 @@ app.get(`/calculate-updated`,
 
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
-      const groupByGiverAddressForOptimismDonations = _.groupBy(optimismDonations, 'giverAddress')
+      const groupByGiverAddressForOptimismDonations = _.groupBy(gnosisDonations, 'giverAddress')
       const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
 
 
