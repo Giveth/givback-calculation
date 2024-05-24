@@ -53,7 +53,7 @@ export const getEligibleDonations = async (
     eligible?: boolean,
     disablePurpleList?: boolean,
     justCountListed?: boolean,
-    chain?: "all-other-chains" | "optimism"
+    chain?: "all-other-chains" | "gnosis"
 
   }): Promise<FormattedDonation[]> => {
   try {
@@ -355,7 +355,7 @@ export const getDonationsReport = async (params: {
   niceWhitelistTokens?: string[],
   niceProjectSlugs?: string[],
   applyChainvineReferral?: boolean,
-  chain?: "all-other-chains" | "optimism"
+  chain?: "all-other-chains" | "gnosis"
 }): Promise<MinimalDonation[]> => {
   const {
     beginDate,
