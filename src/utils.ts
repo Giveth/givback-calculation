@@ -131,7 +131,7 @@ export const createSmartContractCallAddBatchParams = async (params: {
       hashParams
     };
   } catch (e) {
-    console.log('createSmartContractCallAddBatchParams', e)
+    console.log('createSmartContractCallAddBatchParams error', e)
     throw e
   }
 }
