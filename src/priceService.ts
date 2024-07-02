@@ -2,8 +2,10 @@ const axios = require('axios')
 const Web3 = require('web3');
 const {Pool} = require("@uniswap/v3-sdk");
 const { Token } = require('@uniswap/sdk-core');
-const givEconomyXdaiSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-xdai'
-const givEconomyMainnetSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-mainnet'
+// const givEconomyXdaiSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-xdai'
+const givEconomyXdaiSubgraphUrl = process.env.GIVECONOMY_XDAI_SUBGRAPH_URL
+// const givEconomyMainnetSubgraphUrl = 'https://api.thegraph.com/subgraphs/name/giveth/giveth-economy-mainnet'
+const givEconomyMainnetSubgraphUrl = process.env.GIVECONOMY_MAINNET_SUBGRAPH_URL
 const xdaiWeb3 = new Web3(process.env.XDAI_NODE_HTTP_URL);
 const mainnetWeb3 = new Web3(process.env.MAINNET_NODE_URL);
 
