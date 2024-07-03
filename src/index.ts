@@ -118,11 +118,11 @@ app.get(`/calculate`,
       //     chain: chain as "all-other-chains" |"optimism"
       // });
       //
-      const optimismDonations = await getDonationsReport({
+      const gnosisDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
-        chain: "optimism"
+        chain: "gnosis"
       });
       const otherChainDonations = await getDonationsReport({
         beginDate: startDate as string,
@@ -149,7 +149,7 @@ app.get(`/calculate`,
 
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
-      const groupByGiverAddressForOptimismDonations = _.groupBy(optimismDonations, 'giverAddress')
+      const groupByGiverAddressForOptimismDonations = _.groupBy(gnosisDonations, 'giverAddress')
       const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
 
 
@@ -305,7 +305,7 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
         endDate: endDate as string,
         eligible,
         justCountListed: justCountListed === 'yes',
-        chain: chain as "all-other-chains" | "optimism"
+        chain: chain as "all-other-chains" | "gnosis"
 
       });
     const donations =
@@ -484,6 +484,10 @@ app.get('/givPrice', async (req: Request, res: Response) => {
       givPriceInUsd
     })
   } catch (e: any) {
+    console.log('/givPrice error', {
+      error: e,
+      req,
+    })
     res.status(400).send({errorMessage: e.message})
   }
 })
@@ -494,6 +498,10 @@ app.get('/purpleList', async (req: Request, res: Response) => {
 
     res.json({purpleList: await getPurpleList()})
   } catch (e: any) {
+    console.log('/purpleList error', {
+      error: e,
+      req,
+    })
     res.status(400).send({errorMessage: e.message})
   }
 })
@@ -507,6 +515,10 @@ app.get('/givDumpers', async (req: Request, res: Response) => {
       })
     )
   } catch (e: any) {
+    console.log('/givDumpers error', {
+      error: e,
+      req,
+    })
     res.status(400).send({errorMessage: e.message})
   }
 })
@@ -522,7 +534,10 @@ app.get('/token_distro_assign_histories', async (req: Request, res: Response) =>
       })
     )
   } catch (e: any) {
-    console.log('error happened', e)
+    console.log('/token_distro_assign_histories error', {
+      error: e,
+      req,
+    })
     res.status(400).send({errorMessage: e.message})
   }
 })
@@ -609,11 +624,11 @@ app.get(`/calculate-updated`,
       //     chain: chain as "all-other-chains" |"optimism"
       // });
       //
-      const optimismDonations = await getDonationsReport({
+      const gnosisDonations = await getDonationsReport({
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        chain: "optimism"
+        chain: "gnosis"
       });
       const otherChainDonations = await getDonationsReport({
         beginDate: start,
@@ -655,7 +670,7 @@ app.get(`/calculate-updated`,
 
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
-      const groupByGiverAddressForOptimismDonations = _.groupBy(optimismDonations, 'giverAddress')
+      const groupByGiverAddressForOptimismDonations = _.groupBy(gnosisDonations, 'giverAddress')
       const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
 
 
@@ -794,7 +809,10 @@ app.get(`/calculate-updated`,
         res.send(response)
       }
     } catch (e: any) {
-      console.log("error happened", e)
+      console.log('/calculate-updated error', {
+        error: e,
+        req,
+      })
       res.status(400).send({
         message: e.message
       })
@@ -805,7 +823,10 @@ app.get(`/current-round`, async (req: Request, res: Response) => {
     try {
       const result = await getCurrentGIVbacksRound()
       res.send(result)
-    } catch (e: any) {
+    } catch (e: any) {console.log('/current-round error', {
+      error: e,
+      req,
+    })
       res.status(400).send({errorMessage: e.message})
     }
   }

@@ -131,7 +131,7 @@ export const createSmartContractCallAddBatchParams = async (params: {
       hashParams
     };
   } catch (e) {
-    console.log('createSmartContractCallAddBatchParams', e)
+    console.log('createSmartContractCallAddBatchParams error', e)
     throw e
   }
 }
@@ -247,12 +247,12 @@ export const getNetworkNameById = (networkId: number): string => {
   }
 }
 
-export const filterRawDonationsByChain = (gqlResult: { donations: GivethIoDonation[] }, chain ?: "all-other-chains" | "optimism"): GivethIoDonation[] => {
-  if (chain === 'optimism') {
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 10 || donation.transactionNetworkId === 420)
+export const filterRawDonationsByChain = (gqlResult: { donations: GivethIoDonation[] }, chain ?: "all-other-chains" | "gnosis"): GivethIoDonation[] => {
+  if (chain === 'gnosis') {
+    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 100)
   } else if (chain === "all-other-chains") {
     // Exclude Optimism donations and return all other donations
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId !== 10 && donation.transactionNetworkId !== 420)
+    return gqlResult.donations.filter(donation => donation.transactionNetworkId !== 100)
   } else {
     return gqlResult.donations
   }
