@@ -271,7 +271,7 @@ app.get(`/calculate`,
             ...item
           }
         }));
-        const fileName = `givbackReport_optimism_${startDate}-${endDate}.csv`;
+        const fileName = `givbackReport_gnosis_${startDate}-${endDate}.csv`;
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
         res.setHeader('Content-type', 'application/json');
         res.send(csv)
@@ -795,7 +795,7 @@ app.get(`/calculate-updated`,
             ...item
           }
         }));
-        const fileName = `givbackReport_optimism_${start}-${end}.csv`;
+        const fileName = `givbackReport_gnosis_${start}-${end}.csv`;
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
         res.setHeader('Content-type', 'application/json');
         res.send(csv)
