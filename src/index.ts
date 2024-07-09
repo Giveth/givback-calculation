@@ -219,13 +219,13 @@ app.get(`/calculate`,
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
-        optimism: {
+        gnosis: {
           smartContractParams: await createSmartContractCallAddBatchParams(
             {
               nrGIVAddress,
               donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: optimismRelayerAddress,
-              network:'optimism'
+              network:'gnosis'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -237,7 +237,7 @@ app.get(`/calculate`,
               nrGIVAddress,
               donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: gnosisRelayerAddress,
-              network:'gnosis'
+              network:'optimism'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -262,8 +262,8 @@ app.get(`/calculate`,
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
         res.setHeader('Content-type', 'application/json');
         res.send(csv)
-      } else if (download === "optimism") {
-        const csv = parse(response.optimism.givbacks.map((item: DonationResponse) => {
+      } else if (download === "gnosis") {
+        const csv = parse(response.gnosis.givbacks.map((item: DonationResponse) => {
           return {
             givDistributed,
             givPrice,
@@ -743,13 +743,13 @@ app.get(`/calculate-updated`,
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
-        optimism: {
+        gnosis: {
           smartContractParams: await createSmartContractCallAddBatchParams(
             {
               nrGIVAddress,
               donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: optimismRelayerAddress,
-              network:'optimism'
+              network:'gnosis'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -761,7 +761,7 @@ app.get(`/calculate-updated`,
               nrGIVAddress,
               donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: gnosisRelayerAddress,
-              network:'gnosis'
+              network:'optimism'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
@@ -786,8 +786,8 @@ app.get(`/calculate-updated`,
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
         res.setHeader('Content-type', 'application/json');
         res.send(csv)
-      } else if (download === "optimism") {
-        const csv = parse(response.optimism.givbacks.map((item: DonationResponse) => {
+      } else if (download === "gnosis") {
+        const csv = parse(response.gnosis.givbacks.map((item: DonationResponse) => {
           return {
             givDistributed,
             givPrice,
