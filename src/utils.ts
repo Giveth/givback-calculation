@@ -242,6 +242,18 @@ export const getNetworkNameById = (networkId: number): string => {
       return 'celo'
     case 61 :
       return 'etc'
+    case 8453 :
+      return 'base-mainnet'
+    case 84532 :
+      return 'base-sepolia'
+    case 1101 :
+      return 'zkevm-mainnet'
+    case 2442 :
+      return 'zkevm-cardona'
+    case 42161 :
+      return 'arbitrum'
+    case 421614 :
+      return 'arbitrum-sepolia'
     default:
       return String(networkId)
   }
