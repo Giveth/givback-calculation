@@ -49,7 +49,7 @@
           {
             "name": "niceWhitelistTokens",
             "type": "string",
-            "default": "DAI,WXDAI,XDAI,USDC",
+            "default": "DAI,WXDAI,XDAI,USDC,USDC.e,USDGLO",
             "in": "query"
           },
           {
@@ -160,7 +160,7 @@
           {
             "name": "niceWhitelistTokens",
             "type": "string",
-            "default": "DAI,WXDAI,XDAI,USDC",
+            "default": "DAI,WXDAI,XDAI,USDC,USDC.e,USDGLO",
             "in": "query"
           },
           {
@@ -386,7 +386,7 @@
           {
             "name": "niceWhitelistTokens",
             "type": "string",
-            "default": "DAI,WXDAI,XDAI,USDC",
+            "default": "DAI,WXDAI,XDAI,USDC,USDC.e,USDGLO",
             "in": "query"
           },
           {
