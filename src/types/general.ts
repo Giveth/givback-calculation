@@ -1,5 +1,3 @@
-import moment from "moment";
-
 export interface FormattedDonation {
   amount: string,
   currency: string,
@@ -47,7 +45,8 @@ export interface GivethIoDonation {
   source: string,
   user: {
     name: string,
-    email: string
+    email: string,
+    walletAddress: string
   }
 
   recurringDonation ?: {
