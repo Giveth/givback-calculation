@@ -237,8 +237,12 @@ export const getNetworkNameById = (networkId: number): string => {
       return 'optimism'
     case 420 :
       return 'optimism-goerli'
+    case 11155420 :
+      return 'optimism-sepolia'
     case 100 :
       return 'gnosis'
+    case 1500 :
+      return 'stellar'
     case 137:
       return 'polygon'
     case 42220:

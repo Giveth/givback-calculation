@@ -9,6 +9,7 @@ import {
 import {GIVETH_TOKEN_DISTRO_ADDRESS} from "./subgraphService";
 import TokenDistroJSON from '../abi/TokenDistroV2.json'
 const Ethers = require("ethers");
+const {isAddress} = require("ethers");
 
 require('dotenv').config()
 
@@ -36,6 +37,19 @@ const ROUND_20_OFFSET = 345600000; //4 days in miliseconds - At round 20 we chan
 const gnosisProvider = new Ethers.JsonRpcProvider(xdaiNodeHttpUrl);
 const tokenDistroGC = new Ethers.Contract(GIVETH_TOKEN_DISTRO_ADDRESS, TokenDistroJSON.abi, gnosisProvider);
 
+
+export const isEvmAddress = (address: string): boolean => {
+  return isAddress(address);
+};
+
+const isStellarDonationAndUserLoggedInWithEvmAddress = (donation: GivethIoDonation): boolean => {
+  console.log('isStellarDonationAndUserLoggedIn', donation)
+  return Boolean (donation.transactionNetworkId === 1500 && donation?.user?.walletAddress && isEvmAddress(donation?.user?.walletAddress))
+}
+
+const donationGiverAddress = (donation: GivethIoDonation): string => {
+  return isStellarDonationAndUserLoggedInWithEvmAddress(donation) ? donation.user.walletAddress : donation.fromWalletAddress
+}
 
 /**
  *
@@ -116,6 +130,7 @@ export const getEligibleDonations = async (
             user {
               name
               email
+              walletAddress
             }
             fromWalletAddress
             status
@@ -131,7 +146,7 @@ export const getEligibleDonations = async (
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && donation.chainType == 'EVM'
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation) )
           && donation.isProjectVerified
           && donation.status === 'verified'
       )
@@ -142,7 +157,7 @@ export const getEligibleDonations = async (
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && donation.chainType == 'EVM'
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation) )
           && !donation.isProjectVerified
           && donation.status === 'verified'
       )
@@ -201,7 +216,7 @@ export const getEligibleDonations = async (
           usdValue: item.valueUsd,
           givFactor: item.givbackFactor
         }),
-        giverAddress: item.fromWalletAddress,
+        giverAddress: donationGiverAddress(item),
         txHash: item.transactionId,
         network: getNetworkNameById(item.transactionNetworkId),
         source: 'giveth.io',
@@ -232,7 +247,7 @@ export const getEligibleDonations = async (
         projectRank: item.projectRank,
         bottomRankInRound: item.powerRound,
         givbacksRound: item.powerRound,
-        giverAddress: item.fromWalletAddress,
+        giverAddress: donationGiverAddress(item),
         txHash: item.transactionId,
         network: getNetworkNameById(item.transactionNetworkId),
         source: 'giveth.io',
@@ -313,7 +328,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && donation.chainType == 'EVM'
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation) )
           && donation.isProjectVerified
           && donation.status === 'verified'
       )
@@ -326,7 +341,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
         givbackFactor: item.givbackFactor,
-        giverAddress: item.fromWalletAddress,
+        giverAddress: donationGiverAddress(item),
         txHash: item.transactionId,
         network: getNetworkNameById(item.transactionNetworkId),
         source: 'giveth.io',
