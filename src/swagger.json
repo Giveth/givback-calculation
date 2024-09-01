@@ -63,7 +63,7 @@
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
-            "enum": ["no", "gnosis","all-other-chains", "NICE" ],
+            "enum": ["no", "gnosis","all-other-chains", "NICE", "zkEVM" ],
             "in": "query"
           }
         ],
@@ -84,7 +84,7 @@
             "type": "string",
             "description": "For Gnosis we need to distribute on Gnosis chain so we should have different response",
             "default": "all-other-chains",
-            "enum": ["all-other-chains","gnosis"],
+            "enum": ["all-other-chains","gnosis","zkEVM"],
             "in": "query"
           },
           {
@@ -187,7 +187,7 @@
             "type": "string",
             "description": "For Gnosis we need to distribute on Gnosis chain so we should have different response",
             "default": "all-other-chains",
-            "enum": ["all-other-chains","gnosis"],
+            "enum": ["all-other-chains","gnosis","zkEVM"],
             "in": "query"
           },
           {
@@ -400,7 +400,7 @@
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
-            "enum": ["no", "gnosis","all-other-chains", "NICE" ],
+            "enum": ["no", "gnosis","all-other-chains", "NICE", "zkEVM"],
             "in": "query"
           }
         ],
