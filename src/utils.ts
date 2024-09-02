@@ -284,7 +284,7 @@ export const getNetworkNameById = (networkId: number): string => {
 }
 
 export const filterRawDonationsByChain = (gqlResult: { donations: GivethIoDonation[] }, chain ?: "all-other-chains" | "gnosis" | "zkEVM"): GivethIoDonation[] => {
-  
+
   if (chain === 'gnosis') {
     return gqlResult.donations.filter(donation => donation.transactionNetworkId === 100)
   } else if (chain === 'zkEVM') {
@@ -318,4 +318,11 @@ export const getBlockByTimestamp = async (timestamp: number, chainId: number) :P
     console.log('getBlockByTimestamp error', e)
     return 0
   }
+}
+
+export const isDonationAmountValid = (params: {
+  donation: GivethIoDonation, minEligibleValueUsd: number, givethCommunityProjectSlug:string
+}): boolean => {
+  const { donation, minEligibleValueUsd, givethCommunityProjectSlug } = params
+  return donation.valueUsd >= minEligibleValueUsd || donation.project.slug === givethCommunityProjectSlug
 }

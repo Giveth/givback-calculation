@@ -8,6 +8,7 @@ import {
 } from "./types/general";
 import {GIVETH_TOKEN_DISTRO_ADDRESS} from "./subgraphService";
 import TokenDistroJSON from '../abi/TokenDistroV2.json'
+
 const Ethers = require("ethers");
 const {isAddress} = require("ethers");
 
@@ -26,7 +27,7 @@ import {
   calculateReferralRewardFromRemainingAmount,
   calculateReferralReward,
   getNetworkNameById,
-  filterRawDonationsByChain
+  filterRawDonationsByChain, isDonationAmountValid
 } from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
@@ -44,7 +45,7 @@ export const isEvmAddress = (address: string): boolean => {
 
 const isStellarDonationAndUserLoggedInWithEvmAddress = (donation: GivethIoDonation): boolean => {
   console.log('isStellarDonationAndUserLoggedIn', donation)
-  return Boolean (donation.transactionNetworkId === 1500 && donation?.user?.walletAddress && isEvmAddress(donation?.user?.walletAddress))
+  return Boolean(donation.transactionNetworkId === 1500 && donation?.user?.walletAddress && isEvmAddress(donation?.user?.walletAddress))
 }
 
 const donationGiverAddress = (donation: GivethIoDonation): string => {
@@ -62,6 +63,8 @@ export const getEligibleDonations = async (
   params: {
     beginDate: string,
     endDate: string,
+    minEligibleValueUsd: number,
+    givethCommunityProjectSlug: string,
     niceWhitelistTokens?: string[],
     niceProjectSlugs?: string[],
     eligible?: boolean,
@@ -78,7 +81,9 @@ export const getEligibleDonations = async (
       niceProjectSlugs,
       disablePurpleList,
       justCountListed,
-      chain
+      chain,
+      minEligibleValueUsd,
+      givethCommunityProjectSlug
     } = params
     const eligible = params.eligible === undefined ? true : params.eligible
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
@@ -146,7 +151,12 @@ export const getEligibleDonations = async (
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation) )
+          && isDonationAmountValid({
+            donation,
+            minEligibleValueUsd,
+            givethCommunityProjectSlug,
+          } )
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
           && donation.isProjectVerified
           && donation.status === 'verified'
       )
@@ -154,12 +164,15 @@ export const getEligibleDonations = async (
     let donationsToNotVerifiedProjects: GivethIoDonation[] = rawDonationsFilterByChain
       .filter(
         (donation: GivethIoDonation) =>
-          moment(donation.createdAt) < secondDate
-          && moment(donation.createdAt) > firstDate
-          && donation.valueUsd
-          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation) )
-          && !donation.isProjectVerified
-          && donation.status === 'verified'
+          (
+            moment(donation.createdAt) < secondDate
+            && moment(donation.createdAt) > firstDate
+            && donation.valueUsd
+            && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
+            && (!donation.isProjectVerified || donation.valueUsd >= minEligibleValueUsd)
+            && donation.status === 'verified'
+          )
+
       )
 
     if (niceWhitelistTokens) {
@@ -328,7 +341,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation) )
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
           && donation.isProjectVerified
           && donation.status === 'verified'
       )
@@ -366,7 +379,8 @@ export const getDonationsReport = async (params: {
   // example: 2021/07/01-00:00:00
   beginDate: string,
   endDate: string,
-
+  minEligibleValueUsd: number,
+  givethCommunityProjectSlug:string,
   niceWhitelistTokens?: string[],
   niceProjectSlugs?: string[],
   applyChainvineReferral?: boolean,
@@ -378,15 +392,20 @@ export const getDonationsReport = async (params: {
     niceWhitelistTokens,
     niceProjectSlugs,
     applyChainvineReferral,
-    chain
+    chain,
+    givethCommunityProjectSlug,
+    minEligibleValueUsd
   } = params
   try {
+
     const response = await getEligibleDonations(
       {
         beginDate, endDate,
         niceWhitelistTokens,
         niceProjectSlugs,
         disablePurpleList: Boolean(niceWhitelistTokens),
+        minEligibleValueUsd,
+        givethCommunityProjectSlug,
         chain
       })
 

@@ -59,6 +59,18 @@
             "in": "query"
           },
           {
+            "name": "minEligibleValueUsd",
+            "type": "number",
+            "default": "5",
+            "in": "query"
+          },
+          {
+            "name": "givethCommunityProjectSlug",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
+            "in": "query"
+          },
+          {
             "name": "download",
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
@@ -97,6 +109,19 @@
             "name": "endDate",
             "type": "string",
             "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+
+          {
+            "name": "minEligibleValueUsd",
+            "type": "number",
+            "default": "5",
+            "in": "query"
+          },
+          {
+            "name": "givethCommunityProjectSlug",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
             "in": "query"
           },
           {
@@ -200,6 +225,19 @@
             "name": "endDate",
             "type": "string",
             "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+
+          {
+            "name": "minEligibleValueUsd",
+            "type": "number",
+            "default": "5",
+            "in": "query"
+          },
+          {
+            "name": "givethCommunityProjectSlug",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
             "in": "query"
           },
           {
@@ -391,6 +429,18 @@
           },
           {
             "name": "niceProjectSlugs",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
+            "in": "query"
+          },
+          {
+            "name": "minEligibleValueUsd",
+            "type": "number",
+            "default": "5",
+            "in": "query"
+          },
+          {
+            "name": "givethCommunityProjectSlug",
             "type": "string",
             "default": "the-giveth-community-of-makers",
             "in": "query"
