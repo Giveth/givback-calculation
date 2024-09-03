@@ -61,7 +61,7 @@
           {
             "name": "minEligibleValueUsd",
             "type": "number",
-            "default": "5",
+            "default": "4",
             "in": "query"
           },
           {
@@ -115,7 +115,7 @@
           {
             "name": "minEligibleValueUsd",
             "type": "number",
-            "default": "5",
+            "default": "4",
             "in": "query"
           },
           {
@@ -231,7 +231,7 @@
           {
             "name": "minEligibleValueUsd",
             "type": "number",
-            "default": "5",
+            "default": "4",
             "in": "query"
           },
           {
@@ -436,7 +436,7 @@
           {
             "name": "minEligibleValueUsd",
             "type": "number",
-            "default": "5",
+            "default": "4",
             "in": "query"
           },
           {
