@@ -62,9 +62,11 @@ app.get(`/calculate`,
         maxAddressesPerFunctionCall,
         niceWhitelistTokens,
         niceProjectSlugs, nicePerDollar,
+        givethCommunityProjectSlug
       } = req.query;
       const givAvailable = Number(req.query.givAvailable)
       const givPrice = Number(req.query.givPrice)
+      const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
       const givWorth = givAvailable * givPrice
 
       const tokens = (niceWhitelistTokens as string).split(',')
@@ -76,6 +78,8 @@ app.get(`/calculate`,
           endDate: endDate as string,
           niceWhitelistTokens: tokens,
           niceProjectSlugs: slugs,
+          minEligibleValueUsd,
+          givethCommunityProjectSlug: givethCommunityProjectSlug as string
         })
 
       const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
@@ -122,26 +126,35 @@ app.get(`/calculate`,
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
-        chain: "gnosis"
+        chain: "gnosis",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
+
       });
       const otherChainDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
-        chain: "all-other-chains"
+        chain: "all-other-chains",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       const zkEVMDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
-        chain: "zkEVM"
+        chain: "zkEVM",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       const totalDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       const totalDonationsAmount = totalDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
@@ -343,6 +356,8 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
       endDate, startDate, download, justCountListed,
       chain
     } = req.query;
+    const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
+     const givethCommunityProjectSlug = req.query.givethCommunityProjectSlug
 
     const givethIoDonations = await getEligibleDonations(
       {
@@ -350,7 +365,9 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
         endDate: endDate as string,
         eligible,
         justCountListed: justCountListed === 'yes',
-        chain: chain as "all-other-chains" | "gnosis" | "zkEVM"
+        chain: chain as "all-other-chains" | "gnosis" | "zkEVM",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
     const donations =
       givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
@@ -378,8 +395,9 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
   try {
     const {
       endDate, startDate, download, justCountListed, niceWhitelistTokens,
-      niceProjectSlugs, nicePerDollar
+      niceProjectSlugs, nicePerDollar, givethCommunityProjectSlug
     } = req.query;
+    const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
 
     const tokens = (niceWhitelistTokens as string).split(',')
     const slugs = (niceProjectSlugs as string).split(',')
@@ -391,6 +409,8 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
         endDate: endDate as string,
         eligible: true,
         justCountListed: justCountListed === 'yes',
+        minEligibleValueUsd,
+        givethCommunityProjectSlug: givethCommunityProjectSlug as string
 
       });
     const donations =
@@ -596,9 +616,12 @@ app.get(`/calculate-updated`,
         maxAddressesPerFunctionCall,
         niceWhitelistTokens,
         niceProjectSlugs, nicePerDollar,
+        givethCommunityProjectSlug,
       } = req.query;
 
+
       const givAvailable = Number(req.query.givAvailable)
+      const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
       const {start, end} = await getGIVbacksRound(Number(roundNumber))
       const endDate = moment(end, 'YYYY/MM/DD-HH:mm:ss')
       const endDateTimestamp = endDate.unix()
@@ -626,6 +649,8 @@ app.get(`/calculate-updated`,
           endDate: end,
           niceWhitelistTokens: tokens,
           niceProjectSlugs: slugs,
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
         })
 
       const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
@@ -672,20 +697,26 @@ app.get(`/calculate-updated`,
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        chain: "gnosis"
+        chain: "gnosis",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
       const otherChainDonations = await getDonationsReport({
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        chain: "all-other-chains"
+        chain: "all-other-chains",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       const zkEVMDonations = await getDonationsReport({
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        chain: "zkEVM"
+        chain: "zkEVM",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       console.log('***new webservice donations*** new', {
@@ -699,6 +730,8 @@ app.get(`/calculate-updated`,
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       const totalDonationsAmount = totalDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
