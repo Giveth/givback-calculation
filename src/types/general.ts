@@ -65,7 +65,7 @@ export interface GivethIoDonation {
   // giverName: string
   // giverEmail: string,
   status: string,
-  isProjectVerified: boolean,
+  isProjectGivbackEligible: boolean,
   isReferrerGivbackEligible?: boolean,
   referrerWallet?: string
 }

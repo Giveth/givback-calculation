@@ -114,7 +114,7 @@ export const getEligibleDonations = async (
             amount
             givbackFactor
             chainType
-            isProjectVerified
+            isProjectGivbackEligible
             projectRank
             powerRound
             bottomRankInRound
@@ -157,7 +157,7 @@ export const getEligibleDonations = async (
             givethCommunityProjectSlug,
           } )
           && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
-          && donation.isProjectVerified
+          && donation.isProjectGivbackEligible
           && donation.status === 'verified'
       )
 
@@ -169,7 +169,7 @@ export const getEligibleDonations = async (
             && moment(donation.createdAt) > firstDate
             && donation.valueUsd
             && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
-            && (!donation.isProjectVerified || donation.valueUsd >= minEligibleValueUsd)
+            && (!donation.isProjectGivbackEligible || donation.valueUsd >= minEligibleValueUsd)
             && donation.status === 'verified'
           )
 
@@ -318,7 +318,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
             transactionNetworkId
             amount
             chainType
-            isProjectVerified
+            isProjectGivbackEligible
             project {
               slug
               verified
@@ -342,7 +342,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
           && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
-          && donation.isProjectVerified
+          && donation.isProjectGivbackEligible
           && donation.status === 'verified'
       )
 
