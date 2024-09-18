@@ -27,6 +27,6 @@ You just need to run docker-compose-develop.yml, and you dont need any dependenc
 ## Preview
 It's the environment for calculate givback from aggregate donations fo https://giveth.io and https://trace.giveth.io
 #### Production
-https://givback.develop.giveth.io/api-docs
+https://givbacks.giveth.io/api-docs
 #### Staging
-https://givback.develop.giveth.io/staging/api-docs
+https://givback.develop.giveth.io/api-docs
