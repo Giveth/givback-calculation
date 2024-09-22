@@ -21,6 +21,7 @@ export interface FormattedDonation {
   referrerWallet?: string
   referrer?: boolean,
   referred?: boolean,
+  anonymous: boolean,
   parentRecurringDonationId?: string,
   parentRecurringDonationTxHash?: string,
 
@@ -65,9 +66,11 @@ export interface GivethIoDonation {
   // giverName: string
   // giverEmail: string,
   status: string,
+  anonymous: boolean,
   isProjectGivbackEligible: boolean,
   isReferrerGivbackEligible?: boolean,
   referrerWallet?: string
+  numberOfStreamedDonations ?: number
 }
 
 export interface DonationResponse {

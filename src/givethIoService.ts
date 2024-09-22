@@ -114,6 +114,7 @@ export const getEligibleDonations = async (
             amount
             givbackFactor
             chainType
+            anonymous
             isProjectGivbackEligible
             projectRank
             powerRound
@@ -221,6 +222,7 @@ export const getEligibleDonations = async (
         currency: item.currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
+        anonymous: item.anonymous,
         bottomRankInRound: item.bottomRankInRound,
         givbacksRound: item.powerRound,
         projectRank: item.projectRank,
@@ -240,6 +242,7 @@ export const getEligibleDonations = async (
         isReferrerGivbackEligible: item.isReferrerGivbackEligible,
         referrerWallet: item.referrerWallet,
 
+        numberOfStreamedDonations: item.numberOfStreamedDonations,
         parentRecurringDonationId: item?.recurringDonation?.id,
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
@@ -249,6 +252,7 @@ export const getEligibleDonations = async (
       const givbackFactor = item.givbackFactor || 0.5;
       return {
         amount: item.amount,
+        anonymous: item.anonymous,
         currency: item.currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,

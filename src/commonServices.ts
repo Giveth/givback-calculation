@@ -1,5 +1,5 @@
 // List of peoples who should not give givbacks
-import {FormattedDonation, GivbackFactorParams} from "./types/general";
+import {FormattedDonation, GivbackFactorParams, GivethIoDonation} from "./types/general";
 
 const {gql, request} = require("graphql-request");
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
@@ -57,4 +57,50 @@ export const donationValueAfterGivFactor = (params: {
         (usdValue * givFactor).toFixed(7)
     )
 }
+export const groupDonationsByParentRecurringId = (
+  donations: GivethIoDonation[]
+): GivethIoDonation[] => {
+    const groupedDonations: GivethIoDonation[] = [];
 
+    // Create a map to group donations by parentRecurringDonationId
+    const donationMap = donations.reduce((map, donation) => {
+        const parentRecurringDonationId = donation.recurringDonation?.id;
+        if (parentRecurringDonationId) {
+            if (!map[parentRecurringDonationId]) {
+                map[parentRecurringDonationId] = [];
+            }
+            map[parentRecurringDonationId].push(donation);
+        } else {
+            // If there is no parentRecurringDonationId, add directly to the grouped donations
+            groupedDonations.push({
+                ...donation,
+                amount: donation.amount, // Convert amount to number
+            });
+        }
+        return map;
+    }, {} as Record<string, GivethIoDonation[]>);
+
+    // Iterate through the map to create grouped donations
+    for (const parentId in donationMap) {
+        const donationsGroup = donationMap[parentId];
+
+        // Use the data of the first donation in the group
+        const firstDonation = donationsGroup[0];
+
+        // Sum the amounts, valueUsd, and valueUsdAfterGivbackFactor
+        const totalAmount = donationsGroup.reduce((sum, donation) => sum + parseFloat(donation.amount), 0);
+        const totalValueUsd = donationsGroup.reduce((sum, donation) => sum + donation.valueUsd, 0);
+
+        // Create a new grouped donation object
+        const groupedDonation: GivethIoDonation = {
+            ...firstDonation,
+            amount: String(totalAmount),
+            valueUsd: totalValueUsd,
+            numberOfStreamedDonations: donationsGroup.length,
+        };
+
+        groupedDonations.push(groupedDonation);
+    }
+
+    return groupedDonations;
+};

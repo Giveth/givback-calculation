@@ -2,6 +2,7 @@ import {DonationResponse, GivethIoDonation, MinimalDonation} from "./types/gener
 import {hexlify, ethers} from "ethers";
 import { keccak256 } from "@ethersproject/keccak256";
 import { toUtf8Bytes } from "@ethersproject/strings";
+import {groupDonationsByParentRecurringId} from "./commonServices";
 
 
 const Web3 = require('web3');
@@ -284,16 +285,16 @@ export const getNetworkNameById = (networkId: number): string => {
 }
 
 export const filterRawDonationsByChain = (gqlResult: { donations: GivethIoDonation[] }, chain ?: "all-other-chains" | "gnosis" | "zkEVM"): GivethIoDonation[] => {
-
+  const donations = groupDonationsByParentRecurringId(gqlResult.donations)
   if (chain === 'gnosis') {
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 100)
+    return donations.filter(donation => donation.transactionNetworkId === 100)
   } else if (chain === 'zkEVM') {
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 1101)
+    return donations.filter(donation => donation.transactionNetworkId === 1101)
   } else if (chain === "all-other-chains") {
     // Exclude Optimism donations and return all other donations
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId !== 100 && donation.transactionNetworkId !== 1101)
+    return donations.filter(donation => donation.transactionNetworkId !== 100 && donation.transactionNetworkId !== 1101)
   } else {
-    return gqlResult.donations
+    return donations
   }
 
 
