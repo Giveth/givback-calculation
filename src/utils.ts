@@ -210,8 +210,8 @@ const xdaiWeb3 = new Web3(xdaiWeb3NodeUrl);
 
 const optimismWeb3NodeUrl = process.env.OPTIMISM_NODE_HTTP_URL
 const optimismWeb3 = new Web3(optimismWeb3NodeUrl);
-
-const zkEVMWeb3NodeUrl = process.env.ZKEVM_NODE_HTTP_URL
+const isProduction = process.env.ENVIRONMENT !== 'staging';
+const zkEVMWeb3NodeUrl = isProduction ? process.env.ZKEVM_NODE_HTTP_URL: process.env.ZKEVM_CARDONA_HTTP_URL;
 const zkEVMWeb3 = new Web3(zkEVMWeb3NodeUrl);
 
 export const getLastNonceForWalletAddress = async (walletAddress: string, chain: 'gnosis' | 'optimism' | 'zkEVM'): Promise<number> => {
@@ -284,15 +284,17 @@ export const getNetworkNameById = (networkId: number): string => {
   }
 }
 
+const ZKEVM_Network_ID = isProduction? 1101: 2442;
+
 export const filterRawDonationsByChain = (gqlResult: { donations: GivethIoDonation[] }, chain ?: "all-other-chains" | "gnosis" | "zkEVM"): GivethIoDonation[] => {
   const donations = groupDonationsByParentRecurringId(gqlResult.donations)
   if (chain === 'gnosis') {
     return donations.filter(donation => donation.transactionNetworkId === 100)
   } else if (chain === 'zkEVM') {
-    return donations.filter(donation => donation.transactionNetworkId === 1101)
+    return donations.filter(donation => donation.transactionNetworkId === ZKEVM_Network_ID)
   } else if (chain === "all-other-chains") {
     // Exclude Optimism donations and return all other donations
-    return donations.filter(donation => donation.transactionNetworkId !== 100 && donation.transactionNetworkId !== 1101)
+    return donations.filter(donation => donation.transactionNetworkId !== 100 && donation.transactionNetworkId !== ZKEVM_Network_ID)
   } else {
     return donations
   }
