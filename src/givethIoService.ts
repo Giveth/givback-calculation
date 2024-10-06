@@ -8,7 +8,9 @@ import {
 } from "./types/general";
 import {GIVETH_TOKEN_DISTRO_ADDRESS} from "./subgraphService";
 import TokenDistroJSON from '../abi/TokenDistroV2.json'
+
 const Ethers = require("ethers");
+const {isAddress} = require("ethers");
 
 require('dotenv').config()
 
@@ -25,7 +27,7 @@ import {
   calculateReferralRewardFromRemainingAmount,
   calculateReferralReward,
   getNetworkNameById,
-  filterRawDonationsByChain
+  filterRawDonationsByChain, isDonationAmountValid
 } from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
@@ -36,6 +38,19 @@ const ROUND_20_OFFSET = 345600000; //4 days in miliseconds - At round 20 we chan
 const gnosisProvider = new Ethers.JsonRpcProvider(xdaiNodeHttpUrl);
 const tokenDistroGC = new Ethers.Contract(GIVETH_TOKEN_DISTRO_ADDRESS, TokenDistroJSON.abi, gnosisProvider);
 
+
+export const isEvmAddress = (address: string): boolean => {
+  return isAddress(address);
+};
+
+const isStellarDonationAndUserLoggedInWithEvmAddress = (donation: GivethIoDonation): boolean => {
+  console.log('isStellarDonationAndUserLoggedIn', donation)
+  return Boolean(donation.transactionNetworkId === 1500 && donation?.user?.walletAddress && isEvmAddress(donation?.user?.walletAddress))
+}
+
+const donationGiverAddress = (donation: GivethIoDonation): string => {
+  return isStellarDonationAndUserLoggedInWithEvmAddress(donation) ? donation.user.walletAddress : donation.fromWalletAddress
+}
 
 /**
  *
@@ -48,12 +63,14 @@ export const getEligibleDonations = async (
   params: {
     beginDate: string,
     endDate: string,
+    minEligibleValueUsd: number,
+    givethCommunityProjectSlug: string,
     niceWhitelistTokens?: string[],
     niceProjectSlugs?: string[],
     eligible?: boolean,
     disablePurpleList?: boolean,
     justCountListed?: boolean,
-    chain?: "all-other-chains" | "gnosis"
+    chain?: "all-other-chains" | "gnosis" | "zkEVM"
 
   }): Promise<FormattedDonation[]> => {
   try {
@@ -64,7 +81,9 @@ export const getEligibleDonations = async (
       niceProjectSlugs,
       disablePurpleList,
       justCountListed,
-      chain
+      chain,
+      minEligibleValueUsd,
+      givethCommunityProjectSlug
     } = params
     const eligible = params.eligible === undefined ? true : params.eligible
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
@@ -95,7 +114,8 @@ export const getEligibleDonations = async (
             amount
             givbackFactor
             chainType
-            isProjectVerified
+            anonymous
+            isProjectGivbackEligible
             projectRank
             powerRound
             bottomRankInRound
@@ -116,6 +136,7 @@ export const getEligibleDonations = async (
             user {
               name
               email
+              walletAddress
             }
             fromWalletAddress
             status
@@ -131,20 +152,28 @@ export const getEligibleDonations = async (
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && donation.chainType == 'EVM'
-          && donation.isProjectVerified
+          && isDonationAmountValid({
+            donation,
+            minEligibleValueUsd,
+            givethCommunityProjectSlug,
+          } )
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
+          && donation.isProjectGivbackEligible
           && donation.status === 'verified'
       )
 
     let donationsToNotVerifiedProjects: GivethIoDonation[] = rawDonationsFilterByChain
       .filter(
         (donation: GivethIoDonation) =>
-          moment(donation.createdAt) < secondDate
-          && moment(donation.createdAt) > firstDate
-          && donation.valueUsd
-          && donation.chainType == 'EVM'
-          && !donation.isProjectVerified
-          && donation.status === 'verified'
+          (
+            moment(donation.createdAt) < secondDate
+            && moment(donation.createdAt) > firstDate
+            && donation.valueUsd
+            && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
+            && (!donation.isProjectGivbackEligible || donation.valueUsd >= minEligibleValueUsd)
+            && donation.status === 'verified'
+          )
+
       )
 
     if (niceWhitelistTokens) {
@@ -193,6 +222,7 @@ export const getEligibleDonations = async (
         currency: item.currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
+        anonymous: item.anonymous,
         bottomRankInRound: item.bottomRankInRound,
         givbacksRound: item.powerRound,
         projectRank: item.projectRank,
@@ -201,7 +231,7 @@ export const getEligibleDonations = async (
           usdValue: item.valueUsd,
           givFactor: item.givbackFactor
         }),
-        giverAddress: item.fromWalletAddress,
+        giverAddress: donationGiverAddress(item),
         txHash: item.transactionId,
         network: getNetworkNameById(item.transactionNetworkId),
         source: 'giveth.io',
@@ -212,6 +242,7 @@ export const getEligibleDonations = async (
         isReferrerGivbackEligible: item.isReferrerGivbackEligible,
         referrerWallet: item.referrerWallet,
 
+        numberOfStreamedDonations: item.numberOfStreamedDonations,
         parentRecurringDonationId: item?.recurringDonation?.id,
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
@@ -221,6 +252,7 @@ export const getEligibleDonations = async (
       const givbackFactor = item.givbackFactor || 0.5;
       return {
         amount: item.amount,
+        anonymous: item.anonymous,
         currency: item.currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
@@ -232,7 +264,7 @@ export const getEligibleDonations = async (
         projectRank: item.projectRank,
         bottomRankInRound: item.powerRound,
         givbacksRound: item.powerRound,
-        giverAddress: item.fromWalletAddress,
+        giverAddress: donationGiverAddress(item),
         txHash: item.transactionId,
         network: getNetworkNameById(item.transactionNetworkId),
         source: 'giveth.io',
@@ -290,7 +322,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
             transactionNetworkId
             amount
             chainType
-            isProjectVerified
+            isProjectGivbackEligible
             project {
               slug
               verified
@@ -313,8 +345,8 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && donation.chainType == 'EVM'
-          && donation.isProjectVerified
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
+          && donation.isProjectGivbackEligible
           && donation.status === 'verified'
       )
 
@@ -326,7 +358,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
         givbackFactor: item.givbackFactor,
-        giverAddress: item.fromWalletAddress,
+        giverAddress: donationGiverAddress(item),
         txHash: item.transactionId,
         network: getNetworkNameById(item.transactionNetworkId),
         source: 'giveth.io',
@@ -351,11 +383,12 @@ export const getDonationsReport = async (params: {
   // example: 2021/07/01-00:00:00
   beginDate: string,
   endDate: string,
-
+  minEligibleValueUsd: number,
+  givethCommunityProjectSlug:string,
   niceWhitelistTokens?: string[],
   niceProjectSlugs?: string[],
   applyChainvineReferral?: boolean,
-  chain?: "all-other-chains" | "gnosis"
+  chain?: "all-other-chains" | "gnosis" | "zkEVM"
 }): Promise<MinimalDonation[]> => {
   const {
     beginDate,
@@ -363,15 +396,20 @@ export const getDonationsReport = async (params: {
     niceWhitelistTokens,
     niceProjectSlugs,
     applyChainvineReferral,
-    chain
+    chain,
+    givethCommunityProjectSlug,
+    minEligibleValueUsd
   } = params
   try {
+
     const response = await getEligibleDonations(
       {
         beginDate, endDate,
         niceWhitelistTokens,
         niceProjectSlugs,
         disablePurpleList: Boolean(niceWhitelistTokens),
+        minEligibleValueUsd,
+        givethCommunityProjectSlug,
         chain
       })
 

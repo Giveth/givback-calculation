@@ -62,9 +62,11 @@ app.get(`/calculate`,
         maxAddressesPerFunctionCall,
         niceWhitelistTokens,
         niceProjectSlugs, nicePerDollar,
+        givethCommunityProjectSlug
       } = req.query;
       const givAvailable = Number(req.query.givAvailable)
       const givPrice = Number(req.query.givPrice)
+      const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
       const givWorth = givAvailable * givPrice
 
       const tokens = (niceWhitelistTokens as string).split(',')
@@ -76,6 +78,8 @@ app.get(`/calculate`,
           endDate: endDate as string,
           niceWhitelistTokens: tokens,
           niceProjectSlugs: slugs,
+          minEligibleValueUsd,
+          givethCommunityProjectSlug: givethCommunityProjectSlug as string
         })
 
       const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
@@ -122,19 +126,35 @@ app.get(`/calculate`,
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
-        chain: "gnosis"
+        chain: "gnosis",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
+
       });
       const otherChainDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
-        chain: "all-other-chains"
+        chain: "all-other-chains",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
+      });
+
+      const zkEVMDonations = await getDonationsReport({
+        beginDate: startDate as string,
+        endDate: endDate as string,
+        applyChainvineReferral: true,
+        chain: "zkEVM",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       const totalDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       const totalDonationsAmount = totalDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
@@ -151,6 +171,7 @@ app.get(`/calculate`,
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
       const groupByGiverAddressForOptimismDonations = _.groupBy(gnosisDonations, 'giverAddress')
       const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
+      const groupByGiverAddressForzkEVMDonations = _.groupBy(zkEVMDonations, 'giverAddress')
 
 
       const optimismMinimalDonations = getDonationsForSmartContractParams({
@@ -166,6 +187,11 @@ app.get(`/calculate`,
       const totalMinimalDonations = getDonationsForSmartContractParams({
         maxGivbackFactorPercentage,
         groupByGiverAddress: groupByGiverAddressForTotalDonations
+      })
+
+      const zkEVMChainMinimalDonations = getDonationsForSmartContractParams({
+        maxGivbackFactorPercentage,
+        groupByGiverAddress: groupByGiverAddressForzkEVMDonations
       })
 
       const totalMinimalDonationsSortedByUsdValue = totalMinimalDonations.sort((a, b) => {
@@ -190,6 +216,11 @@ app.get(`/calculate`,
         raisedValueSum
       })
 
+      const zkEVMChainMinimalDonationsWithShare = convertMinimalDonationToDonationResponse({
+        minimalDonationsArray: zkEVMChainMinimalDonations,
+        givPrice,
+        raisedValueSum
+      })
 
       const allOtherChainsDonationsWithShare = convertMinimalDonationToDonationResponse({
         minimalDonationsArray: allOtherChainsMinimalDonations,
@@ -215,6 +246,7 @@ app.get(`/calculate`,
       // https://github.com/Giveth/givback-calculation/issues/35#issuecomment-1716106403
       const optimismRelayerAddress = '0xf13e93af5e706ab3073e393e77bb2d7ce7bec01f'
       const gnosisRelayerAddress = '0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7'
+      const zkEVMRelayerAddress = '0x0000000000000000000000000000000000000000'
       const response = {
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
@@ -242,6 +274,18 @@ app.get(`/calculate`,
             Number(maxAddressesPerFunctionCall) || 200
           ),
           givbacks: allOtherChainsDonationsWithShare
+        },
+        zkEVM: {
+          smartContractParams: await createSmartContractCallAddBatchParams(
+            {
+              nrGIVAddress,
+              donationsWithShare: zkEVMChainMinimalDonationsWithShare.filter(givback => givback.givback > 0),
+              givRelayerAddress: zkEVMRelayerAddress,
+              network:'zkEVM'
+            },
+            Number(maxAddressesPerFunctionCall) || 200
+          ),
+          givbacks: zkEVMChainMinimalDonationsWithShare
         },
         niceTokens: niceDonationsWithShareFormatted,
         // niceRaisedValueSumExcludedPurpleList: Math.ceil(raisedValueForGivethioDonationsSum),
@@ -275,6 +319,20 @@ app.get(`/calculate`,
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
         res.setHeader('Content-type', 'application/json');
         res.send(csv)
+      } else if(download === 'zkEVM'){
+          console.log('zkEVM response',response.zkEVM);
+          const csv = parse(response.zkEVM.givbacks.map((item: DonationResponse) => {
+            return {
+              givDistributed,
+              givPrice,
+              givbackUsdValue: givPrice * item.givback,
+              ...item
+            }
+          }));
+          const fileName = `givbackReport_zkEVM_${startDate}-${endDate}.csv`;
+          res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+          res.setHeader('Content-type', 'application/json');
+          res.send(csv)
       } else if (download === 'NICE') {
         const csv = parse(response.niceTokens);
         const fileName = `givbackReport_NICE_${startDate}-${endDate}.csv`;
@@ -298,6 +356,8 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
       endDate, startDate, download, justCountListed,
       chain
     } = req.query;
+    const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
+     const givethCommunityProjectSlug = req.query.givethCommunityProjectSlug
 
     const givethIoDonations = await getEligibleDonations(
       {
@@ -305,8 +365,9 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
         endDate: endDate as string,
         eligible,
         justCountListed: justCountListed === 'yes',
-        chain: chain as "all-other-chains" | "gnosis"
-
+        chain: chain as "all-other-chains" | "gnosis" | "zkEVM",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
     const donations =
       givethIoDonations.sort((a: FormattedDonation, b: FormattedDonation) => {
@@ -334,8 +395,9 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
   try {
     const {
       endDate, startDate, download, justCountListed, niceWhitelistTokens,
-      niceProjectSlugs, nicePerDollar
+      niceProjectSlugs, nicePerDollar, givethCommunityProjectSlug
     } = req.query;
+    const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
 
     const tokens = (niceWhitelistTokens as string).split(',')
     const slugs = (niceProjectSlugs as string).split(',')
@@ -347,6 +409,8 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
         endDate: endDate as string,
         eligible: true,
         justCountListed: justCountListed === 'yes',
+        minEligibleValueUsd,
+        givethCommunityProjectSlug: givethCommunityProjectSlug as string
 
       });
     const donations =
@@ -552,9 +616,12 @@ app.get(`/calculate-updated`,
         maxAddressesPerFunctionCall,
         niceWhitelistTokens,
         niceProjectSlugs, nicePerDollar,
+        givethCommunityProjectSlug,
       } = req.query;
 
+
       const givAvailable = Number(req.query.givAvailable)
+      const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
       const {start, end} = await getGIVbacksRound(Number(roundNumber))
       const endDate = moment(end, 'YYYY/MM/DD-HH:mm:ss')
       const endDateTimestamp = endDate.unix()
@@ -582,6 +649,8 @@ app.get(`/calculate-updated`,
           endDate: end,
           niceWhitelistTokens: tokens,
           niceProjectSlugs: slugs,
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
         })
 
       const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
@@ -628,13 +697,26 @@ app.get(`/calculate-updated`,
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        chain: "gnosis"
+        chain: "gnosis",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
       const otherChainDonations = await getDonationsReport({
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        chain: "all-other-chains"
+        chain: "all-other-chains",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
+      });
+
+      const zkEVMDonations = await getDonationsReport({
+        beginDate: start,
+        endDate: end,
+        applyChainvineReferral: true,
+        chain: "zkEVM",
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       console.log('***new webservice donations*** new', {
@@ -648,6 +730,8 @@ app.get(`/calculate-updated`,
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
+        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        minEligibleValueUsd
       });
 
       const totalDonationsAmount = totalDonations.reduce((previousValue: number, currentValue: MinimalDonation) => {
@@ -672,6 +756,7 @@ app.get(`/calculate-updated`,
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
       const groupByGiverAddressForOptimismDonations = _.groupBy(gnosisDonations, 'giverAddress')
       const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
+      const groupByGiverAddressForzkEVMDonations = _.groupBy(zkEVMDonations, 'giverAddress')
 
 
       const optimismMinimalDonations = getDonationsForSmartContractParams({
@@ -682,6 +767,11 @@ app.get(`/calculate-updated`,
       const allOtherChainsMinimalDonations = getDonationsForSmartContractParams({
         maxGivbackFactorPercentage,
         groupByGiverAddress: groupByGiverAddressForAllOtherChainsDonations
+      })
+
+      const zkEVMChainMinimalDonations = getDonationsForSmartContractParams({
+        maxGivbackFactorPercentage,
+        groupByGiverAddress: groupByGiverAddressForzkEVMDonations
       })
 
       const totalMinimalDonations = getDonationsForSmartContractParams({
@@ -717,6 +807,13 @@ app.get(`/calculate-updated`,
         givPrice,
         raisedValueSum
       })
+
+      const zkEVMDonationsWithShare = convertMinimalDonationToDonationResponse({
+        minimalDonationsArray: zkEVMChainMinimalDonations,
+        givPrice,
+        raisedValueSum
+      })
+
       console.log('**allOtherChainsDonationsWithShare**', allOtherChainsDonationsWithShare.length)
       console.log('**allOtherChainsMinimalDonations**', allOtherChainsMinimalDonations.length)
 
@@ -736,6 +833,8 @@ app.get(`/calculate-updated`,
       const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
       const optimismRelayerAddress = '0xf13e93af5e706ab3073e393e77bb2d7ce7bec01f'
       const gnosisRelayerAddress = '0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7'
+      // TODO : Set the relayer address for zkEVM.
+      const zkEVMRelayerAddress = '0x0000000000000000000000000000000000000000'
 
       const response = {
         start,
@@ -743,6 +842,18 @@ app.get(`/calculate-updated`,
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
+        zkEVM: {
+          smartContractParams: await createSmartContractCallAddBatchParams(
+            {
+              nrGIVAddress,
+              donationsWithShare: zkEVMDonationsWithShare.filter(givback => givback.givback > 0),
+              givRelayerAddress: zkEVMRelayerAddress,
+              network:'gnosis'
+            },
+            Number(maxAddressesPerFunctionCall) || 200
+          ),
+          givbacks: zkEVMDonationsWithShare
+        },
         gnosis: {
           smartContractParams: await createSmartContractCallAddBatchParams(
             {
@@ -796,6 +907,19 @@ app.get(`/calculate-updated`,
           }
         }));
         const fileName = `givbackReport_gnosis_${start}-${end}.csv`;
+        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
+        res.setHeader('Content-type', 'application/json');
+        res.send(csv)
+      } else if (download === "zkEVM") {
+        const csv = parse(response.zkEVM.givbacks.map((item: DonationResponse) => {
+          return {
+            givDistributed,
+            givPrice,
+            givbackUsdValue: givPrice * item.givback,
+            ...item
+          }
+        }));
+        const fileName = `givbackReport_zkEVM_${start}-${end}.csv`;
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
         res.setHeader('Content-type', 'application/json');
         res.send(csv)

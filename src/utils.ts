@@ -2,6 +2,7 @@ import {DonationResponse, GivethIoDonation, MinimalDonation} from "./types/gener
 import {hexlify, ethers} from "ethers";
 import { keccak256 } from "@ethersproject/keccak256";
 import { toUtf8Bytes } from "@ethersproject/strings";
+import {groupDonationsByParentRecurringId} from "./commonServices";
 
 
 const Web3 = require('web3');
@@ -80,7 +81,7 @@ export const createSmartContractCallAddBatchParams = async (params: {
   nrGIVAddress: string,
   donationsWithShare: DonationResponse[],
   givRelayerAddress: string,
-  network : 'gnosis' | 'optimism'
+  network : 'gnosis' | 'optimism' | 'zkEVM'
 }, maxAddressesPerFunctionCall: number): Promise<{
   result: string,
   hashParams: string
@@ -209,9 +210,12 @@ const xdaiWeb3 = new Web3(xdaiWeb3NodeUrl);
 
 const optimismWeb3NodeUrl = process.env.OPTIMISM_NODE_HTTP_URL
 const optimismWeb3 = new Web3(optimismWeb3NodeUrl);
+const isProduction = process.env.ENVIRONMENT !== 'staging';
+const zkEVMWeb3NodeUrl = isProduction ? process.env.ZKEVM_NODE_HTTP_URL: process.env.ZKEVM_CARDONA_HTTP_URL;
+const zkEVMWeb3 = new Web3(zkEVMWeb3NodeUrl);
 
-export const getLastNonceForWalletAddress = async (walletAddress: string, chain: 'gnosis' | 'optimism'): Promise<number> => {
-  const web3Provider = chain === 'optimism' ? optimismWeb3 : xdaiWeb3
+export const getLastNonceForWalletAddress = async (walletAddress: string, chain: 'gnosis' | 'optimism' | 'zkEVM'): Promise<number> => {
+  const web3Provider = getWeb3Provider(chain);
   const userTransactionsCount = await web3Provider.eth.getTransactionCount(
     walletAddress
   );
@@ -224,6 +228,20 @@ export const getLastNonceForWalletAddress = async (walletAddress: string, chain:
   return Math.max(userTransactionsCount - 1, 0)
 }
 
+const getWeb3Provider = (chain: 'gnosis' | 'optimism' | 'zkEVM'): any => {
+  let web3Provider = xdaiWeb3;
+  switch(chain) {
+    case 'optimism':
+      web3Provider = optimismWeb3
+    break;
+    case 'zkEVM':
+      web3Provider = zkEVMWeb3;
+    break;
+    default:
+      web3Provider = xdaiWeb3;
+  }
+  return web3Provider;
+}
 
 export const getNetworkNameById = (networkId: number): string => {
   switch (networkId) {
@@ -237,8 +255,12 @@ export const getNetworkNameById = (networkId: number): string => {
       return 'optimism'
     case 420 :
       return 'optimism-goerli'
+    case 11155420 :
+      return 'optimism-sepolia'
     case 100 :
       return 'gnosis'
+    case 1500 :
+      return 'stellar'
     case 137:
       return 'polygon'
     case 42220:
@@ -262,14 +284,19 @@ export const getNetworkNameById = (networkId: number): string => {
   }
 }
 
-export const filterRawDonationsByChain = (gqlResult: { donations: GivethIoDonation[] }, chain ?: "all-other-chains" | "gnosis"): GivethIoDonation[] => {
+const ZKEVM_Network_ID = isProduction? 1101: 2442;
+
+export const filterRawDonationsByChain = (gqlResult: { donations: GivethIoDonation[] }, chain ?: "all-other-chains" | "gnosis" | "zkEVM"): GivethIoDonation[] => {
+  const donations = groupDonationsByParentRecurringId(gqlResult.donations)
   if (chain === 'gnosis') {
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId === 100)
+    return donations.filter(donation => donation.transactionNetworkId === 100)
+  } else if (chain === 'zkEVM') {
+    return donations.filter(donation => donation.transactionNetworkId === ZKEVM_Network_ID)
   } else if (chain === "all-other-chains") {
     // Exclude Optimism donations and return all other donations
-    return gqlResult.donations.filter(donation => donation.transactionNetworkId !== 100)
+    return donations.filter(donation => donation.transactionNetworkId !== 100 && donation.transactionNetworkId !== ZKEVM_Network_ID)
   } else {
-    return gqlResult.donations
+    return donations
   }
 
 
@@ -294,4 +321,11 @@ export const getBlockByTimestamp = async (timestamp: number, chainId: number) :P
     console.log('getBlockByTimestamp error', e)
     return 0
   }
+}
+
+export const isDonationAmountValid = (params: {
+  donation: GivethIoDonation, minEligibleValueUsd: number, givethCommunityProjectSlug:string
+}): boolean => {
+  const { donation, minEligibleValueUsd, givethCommunityProjectSlug } = params
+  return donation.valueUsd >= minEligibleValueUsd || donation.project.slug === givethCommunityProjectSlug
 }

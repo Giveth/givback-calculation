@@ -1,5 +1,3 @@
-import moment from "moment";
-
 export interface FormattedDonation {
   amount: string,
   currency: string,
@@ -23,6 +21,7 @@ export interface FormattedDonation {
   referrerWallet?: string
   referrer?: boolean,
   referred?: boolean,
+  anonymous: boolean,
   parentRecurringDonationId?: string,
   parentRecurringDonationTxHash?: string,
 
@@ -47,7 +46,8 @@ export interface GivethIoDonation {
   source: string,
   user: {
     name: string,
-    email: string
+    email: string,
+    walletAddress: string
   }
 
   recurringDonation ?: {
@@ -66,9 +66,11 @@ export interface GivethIoDonation {
   // giverName: string
   // giverEmail: string,
   status: string,
-  isProjectVerified: boolean,
+  anonymous: boolean,
+  isProjectGivbackEligible: boolean,
   isReferrerGivbackEligible?: boolean,
   referrerWallet?: string
+  numberOfStreamedDonations ?: number
 }
 
 export interface DonationResponse {

@@ -59,11 +59,23 @@
             "in": "query"
           },
           {
+            "name": "minEligibleValueUsd",
+            "type": "number",
+            "default": "4",
+            "in": "query"
+          },
+          {
+            "name": "givethCommunityProjectSlug",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
+            "in": "query"
+          },
+          {
             "name": "download",
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
-            "enum": ["no", "gnosis","all-other-chains", "NICE" ],
+            "enum": ["no", "gnosis","all-other-chains", "NICE", "zkEVM" ],
             "in": "query"
           }
         ],
@@ -84,7 +96,7 @@
             "type": "string",
             "description": "For Gnosis we need to distribute on Gnosis chain so we should have different response",
             "default": "all-other-chains",
-            "enum": ["all-other-chains","gnosis"],
+            "enum": ["all-other-chains","gnosis","zkEVM"],
             "in": "query"
           },
           {
@@ -97,6 +109,19 @@
             "name": "endDate",
             "type": "string",
             "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+
+          {
+            "name": "minEligibleValueUsd",
+            "type": "number",
+            "default": "4",
+            "in": "query"
+          },
+          {
+            "name": "givethCommunityProjectSlug",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
             "in": "query"
           },
           {
@@ -187,7 +212,7 @@
             "type": "string",
             "description": "For Gnosis we need to distribute on Gnosis chain so we should have different response",
             "default": "all-other-chains",
-            "enum": ["all-other-chains","gnosis"],
+            "enum": ["all-other-chains","gnosis","zkEVM"],
             "in": "query"
           },
           {
@@ -200,6 +225,19 @@
             "name": "endDate",
             "type": "string",
             "default": "2022/01/21-15:59:59",
+            "in": "query"
+          },
+
+          {
+            "name": "minEligibleValueUsd",
+            "type": "number",
+            "default": "4",
+            "in": "query"
+          },
+          {
+            "name": "givethCommunityProjectSlug",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
             "in": "query"
           },
           {
@@ -396,11 +434,23 @@
             "in": "query"
           },
           {
+            "name": "minEligibleValueUsd",
+            "type": "number",
+            "default": "4",
+            "in": "query"
+          },
+          {
+            "name": "givethCommunityProjectSlug",
+            "type": "string",
+            "default": "the-giveth-community-of-makers",
+            "in": "query"
+          },
+          {
             "name": "download",
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
-            "enum": ["no", "gnosis","all-other-chains", "NICE" ],
+            "enum": ["no", "gnosis","all-other-chains", "NICE", "zkEVM"],
             "in": "query"
           }
         ],
