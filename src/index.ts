@@ -122,38 +122,12 @@ app.get(`/calculate`,
       //     chain: chain as "all-other-chains" |"optimism"
       // });
       //
-      const gnosisDonations = await getDonationsReport({
-        beginDate: startDate as string,
-        endDate: endDate as string,
-        applyChainvineReferral: true,
-        chain: "gnosis",
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
-        minEligibleValueUsd
-
-      });
-      const otherChainDonations = await getDonationsReport({
-        beginDate: startDate as string,
-        endDate: endDate as string,
-        applyChainvineReferral: true,
-        chain: "all-other-chains",
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
-        minEligibleValueUsd
-      });
-
-      const zkEVMDonations = await getDonationsReport({
-        beginDate: startDate as string,
-        endDate: endDate as string,
-        applyChainvineReferral: true,
-        chain: "zkEVM",
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
-        minEligibleValueUsd
-      });
 
       const totalDonations = await getDonationsReport({
         beginDate: startDate as string,
         endDate: endDate as string,
         applyChainvineReferral: true,
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        givethCommunityProjectSlug: givethCommunityProjectSlug as string,
         minEligibleValueUsd
       });
 
@@ -169,29 +143,11 @@ app.get(`/calculate`,
 
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
-      const groupByGiverAddressForOptimismDonations = _.groupBy(gnosisDonations, 'giverAddress')
-      const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
-      const groupByGiverAddressForzkEVMDonations = _.groupBy(zkEVMDonations, 'giverAddress')
 
-
-      const optimismMinimalDonations = getDonationsForSmartContractParams({
-        maxGivbackFactorPercentage,
-        groupByGiverAddress: groupByGiverAddressForOptimismDonations
-      })
-
-      const allOtherChainsMinimalDonations = getDonationsForSmartContractParams({
-        maxGivbackFactorPercentage,
-        groupByGiverAddress: groupByGiverAddressForAllOtherChainsDonations
-      })
 
       const totalMinimalDonations = getDonationsForSmartContractParams({
         maxGivbackFactorPercentage,
         groupByGiverAddress: groupByGiverAddressForTotalDonations
-      })
-
-      const zkEVMChainMinimalDonations = getDonationsForSmartContractParams({
-        maxGivbackFactorPercentage,
-        groupByGiverAddress: groupByGiverAddressForzkEVMDonations
       })
 
       const totalMinimalDonationsSortedByUsdValue = totalMinimalDonations.sort((a, b) => {
@@ -210,20 +166,9 @@ app.get(`/calculate`,
       // const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
       // const givDistributed = givFactor * (raisedValueSum / givPrice);
 
-      const optimismDonationsWithShare = convertMinimalDonationToDonationResponse({
-        minimalDonationsArray: optimismMinimalDonations,
-        givPrice,
-        raisedValueSum
-      })
 
-      const zkEVMChainMinimalDonationsWithShare = convertMinimalDonationToDonationResponse({
-        minimalDonationsArray: zkEVMChainMinimalDonations,
-        givPrice,
-        raisedValueSum
-      })
-
-      const allOtherChainsDonationsWithShare = convertMinimalDonationToDonationResponse({
-        minimalDonationsArray: allOtherChainsMinimalDonations,
+      const allChainsDonationsWithShare = convertMinimalDonationToDonationResponse({
+        minimalDonationsArray: totalMinimalDonations,
         givPrice,
         raisedValueSum
       })
@@ -245,56 +190,27 @@ app.get(`/calculate`,
 
       // https://github.com/Giveth/givback-calculation/issues/35#issuecomment-1716106403
       const optimismRelayerAddress = '0xf13e93af5e706ab3073e393e77bb2d7ce7bec01f'
-      const gnosisRelayerAddress = '0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7'
-      const zkEVMRelayerAddress = '0x0000000000000000000000000000000000000000'
       const response = {
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
-        gnosis: {
+        allChains: {
           smartContractParams: await createSmartContractCallAddBatchParams(
             {
               nrGIVAddress,
-              donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
+              donationsWithShare: allChainsDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: optimismRelayerAddress,
-              network:'gnosis'
+              network: 'optimism'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
-          givbacks: optimismDonationsWithShare
-        },
-        allOtherChains: {
-          smartContractParams: await createSmartContractCallAddBatchParams(
-            {
-              nrGIVAddress,
-              donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: gnosisRelayerAddress,
-              network:'optimism'
-            },
-            Number(maxAddressesPerFunctionCall) || 200
-          ),
-          givbacks: allOtherChainsDonationsWithShare
-        },
-        zkEVM: {
-          smartContractParams: await createSmartContractCallAddBatchParams(
-            {
-              nrGIVAddress,
-              donationsWithShare: zkEVMChainMinimalDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: zkEVMRelayerAddress,
-              network:'zkEVM'
-            },
-            Number(maxAddressesPerFunctionCall) || 200
-          ),
-          givbacks: zkEVMChainMinimalDonationsWithShare
+          givbacks: allChainsDonationsWithShare
         },
         niceTokens: niceDonationsWithShareFormatted,
-        // niceRaisedValueSumExcludedPurpleList: Math.ceil(raisedValueForGivethioDonationsSum),
-        // niceGivethioDonationsAmountForNice: Math.ceil(givethioDonationsAmountForNice),
-        // niceShares: niceDonationsWithShare,
         purpleList: await getPurpleList(),
       };
-      if (download === "all-other-chains") {
-        const csv = parse(response.allOtherChains.givbacks.map((item: DonationResponse) => {
+      if (download === "yes") {
+        const csv = parse(response.allChains.givbacks.map((item: DonationResponse) => {
           return {
             givDistributed,
             givPrice,
@@ -302,37 +218,10 @@ app.get(`/calculate`,
             ...item
           }
         }));
-        const fileName = `givbackReport_allOtherChains_${startDate}-${endDate}.csv`;
+        const fileName = `givbackReport_allChains_${startDate}-${endDate}.csv`;
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
         res.setHeader('Content-type', 'application/json');
         res.send(csv)
-      } else if (download === "gnosis") {
-        const csv = parse(response.gnosis.givbacks.map((item: DonationResponse) => {
-          return {
-            givDistributed,
-            givPrice,
-            givbackUsdValue: givPrice * item.givback,
-            ...item
-          }
-        }));
-        const fileName = `givbackReport_gnosis_${startDate}-${endDate}.csv`;
-        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-        res.setHeader('Content-type', 'application/json');
-        res.send(csv)
-      } else if(download === 'zkEVM'){
-          console.log('zkEVM response',response.zkEVM);
-          const csv = parse(response.zkEVM.givbacks.map((item: DonationResponse) => {
-            return {
-              givDistributed,
-              givPrice,
-              givbackUsdValue: givPrice * item.givback,
-              ...item
-            }
-          }));
-          const fileName = `givbackReport_zkEVM_${startDate}-${endDate}.csv`;
-          res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-          res.setHeader('Content-type', 'application/json');
-          res.send(csv)
       } else if (download === 'NICE') {
         const csv = parse(response.niceTokens);
         const fileName = `givbackReport_NICE_${startDate}-${endDate}.csv`;
@@ -357,7 +246,7 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
       chain
     } = req.query;
     const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
-     const givethCommunityProjectSlug = req.query.givethCommunityProjectSlug
+    const givethCommunityProjectSlug = req.query.givethCommunityProjectSlug
 
     const givethIoDonations = await getEligibleDonations(
       {
@@ -365,8 +254,7 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
         endDate: endDate as string,
         eligible,
         justCountListed: justCountListed === 'yes',
-        chain: chain as "all-other-chains" | "gnosis" | "zkEVM",
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        givethCommunityProjectSlug: givethCommunityProjectSlug as string,
         minEligibleValueUsd
       });
     const donations =
@@ -592,7 +480,7 @@ app.get('/token_distro_assign_histories', async (req: Request, res: Response) =>
     const {tokenDistroAddress, uniPoolAddress, rpcUrl} = req.query;
     res.json(
       await getAssignHistory({
-        tokenDistroAddress : tokenDistroAddress as string,
+        tokenDistroAddress: tokenDistroAddress as string,
         uniPoolAddress: uniPoolAddress as string,
         rpcUrl: rpcUrl as string
       })
@@ -649,8 +537,8 @@ app.get(`/calculate-updated`,
           endDate: end,
           niceWhitelistTokens: tokens,
           niceProjectSlugs: slugs,
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
-        minEligibleValueUsd
+          givethCommunityProjectSlug: givethCommunityProjectSlug as string,
+          minEligibleValueUsd
         })
 
       const niceDonationsGroupByGiverAddress = _.groupBy(givethDonationsForNice, 'giverAddress')
@@ -685,39 +573,14 @@ app.get(`/calculate-updated`,
       }).filter((item: DonationResponse) => {
         return item.share > 0
       })
-
-      // const givethDonations = await getDonationsReport({
-      //     beginDate: startDate as string,
-      //     endDate: endDate as string,
-      //     applyChainvineReferral: true,
-      //     chain: chain as "all-other-chains" |"optimism"
-      // });
-      //
-      const gnosisDonations = await getDonationsReport({
-        beginDate: start,
-        endDate: end,
-        applyChainvineReferral: true,
-        chain: "gnosis",
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
-        minEligibleValueUsd
-      });
       const otherChainDonations = await getDonationsReport({
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        chain: "all-other-chains",
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        givethCommunityProjectSlug: givethCommunityProjectSlug as string,
         minEligibleValueUsd
       });
 
-      const zkEVMDonations = await getDonationsReport({
-        beginDate: start,
-        endDate: end,
-        applyChainvineReferral: true,
-        chain: "zkEVM",
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
-        minEligibleValueUsd
-      });
 
       console.log('***new webservice donations*** new', {
         otherChainDonations: otherChainDonations.length,
@@ -730,7 +593,7 @@ app.get(`/calculate-updated`,
         beginDate: start,
         endDate: end,
         applyChainvineReferral: true,
-        givethCommunityProjectSlug:givethCommunityProjectSlug as string,
+        givethCommunityProjectSlug: givethCommunityProjectSlug as string,
         minEligibleValueUsd
       });
 
@@ -754,25 +617,8 @@ app.get(`/calculate-updated`,
 
 
       const groupByGiverAddressForTotalDonations = _.groupBy(totalDonations, 'giverAddress')
-      const groupByGiverAddressForOptimismDonations = _.groupBy(gnosisDonations, 'giverAddress')
-      const groupByGiverAddressForAllOtherChainsDonations = _.groupBy(otherChainDonations, 'giverAddress')
-      const groupByGiverAddressForzkEVMDonations = _.groupBy(zkEVMDonations, 'giverAddress')
 
 
-      const optimismMinimalDonations = getDonationsForSmartContractParams({
-        maxGivbackFactorPercentage,
-        groupByGiverAddress: groupByGiverAddressForOptimismDonations
-      })
-
-      const allOtherChainsMinimalDonations = getDonationsForSmartContractParams({
-        maxGivbackFactorPercentage,
-        groupByGiverAddress: groupByGiverAddressForAllOtherChainsDonations
-      })
-
-      const zkEVMChainMinimalDonations = getDonationsForSmartContractParams({
-        maxGivbackFactorPercentage,
-        groupByGiverAddress: groupByGiverAddressForzkEVMDonations
-      })
 
       const totalMinimalDonations = getDonationsForSmartContractParams({
         maxGivbackFactorPercentage,
@@ -792,30 +638,15 @@ app.get(`/calculate-updated`,
       }
 
 
-      // const givFactor = Math.min(givWorth / raisedValueSum, givMaxFactor)
-      // const givDistributed = givFactor * (raisedValueSum / givPrice);
 
-      const optimismDonationsWithShare = convertMinimalDonationToDonationResponse({
-        minimalDonationsArray: optimismMinimalDonations,
+      const totalDonationsWithShare = convertMinimalDonationToDonationResponse({
+        minimalDonationsArray: groupByGiverAddressForTotalDonations,
         givPrice,
         raisedValueSum
       })
 
 
-      const allOtherChainsDonationsWithShare = convertMinimalDonationToDonationResponse({
-        minimalDonationsArray: allOtherChainsMinimalDonations,
-        givPrice,
-        raisedValueSum
-      })
-
-      const zkEVMDonationsWithShare = convertMinimalDonationToDonationResponse({
-        minimalDonationsArray: zkEVMChainMinimalDonations,
-        givPrice,
-        raisedValueSum
-      })
-
-      console.log('**allOtherChainsDonationsWithShare**', allOtherChainsDonationsWithShare.length)
-      console.log('**allOtherChainsMinimalDonations**', allOtherChainsMinimalDonations.length)
+      console.log('**totalDonationsWithShare**', totalDonationsWithShare.length)
 
       const niceDonationsWithShareFormatted: DonationResponse[] = []
       for (const niceShareItem of niceDonationsWithShare) {
@@ -832,9 +663,6 @@ app.get(`/calculate-updated`,
       }
       const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
       const optimismRelayerAddress = '0xf13e93af5e706ab3073e393e77bb2d7ce7bec01f'
-      const gnosisRelayerAddress = '0xd0e81E3EE863318D0121501ff48C6C3e3Fd6cbc7'
-      // TODO : Set the relayer address for zkEVM.
-      const zkEVMRelayerAddress = '0x0000000000000000000000000000000000000000'
 
       const response = {
         start,
@@ -842,41 +670,17 @@ app.get(`/calculate-updated`,
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
-        zkEVM: {
+        allChains: {
           smartContractParams: await createSmartContractCallAddBatchParams(
             {
               nrGIVAddress,
-              donationsWithShare: zkEVMDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: zkEVMRelayerAddress,
-              network:'gnosis'
-            },
-            Number(maxAddressesPerFunctionCall) || 200
-          ),
-          givbacks: zkEVMDonationsWithShare
-        },
-        gnosis: {
-          smartContractParams: await createSmartContractCallAddBatchParams(
-            {
-              nrGIVAddress,
-              donationsWithShare: optimismDonationsWithShare.filter(givback => givback.givback > 0),
+              donationsWithShare: totalDonationsWithShare.filter(givback => givback.givback > 0),
               givRelayerAddress: optimismRelayerAddress,
-              network:'gnosis'
+              network: 'optimism'
             },
             Number(maxAddressesPerFunctionCall) || 200
           ),
-          givbacks: optimismDonationsWithShare
-        },
-        allOtherChains: {
-          smartContractParams: await createSmartContractCallAddBatchParams(
-            {
-              nrGIVAddress,
-              donationsWithShare: allOtherChainsDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: gnosisRelayerAddress,
-              network:'optimism'
-            },
-            Number(maxAddressesPerFunctionCall) || 200
-          ),
-          givbacks: allOtherChainsDonationsWithShare
+          givbacks: totalDonationsWithShare
         },
         niceTokens: niceDonationsWithShareFormatted,
         // niceRaisedValueSumExcludedPurpleList: Math.ceil(raisedValueForGivethioDonationsSum),
@@ -884,8 +688,8 @@ app.get(`/calculate-updated`,
         // niceShares: niceDonationsWithShare,
         purpleList: await getPurpleList(),
       };
-      if (download === "all-other-chains") {
-        const csv = parse(response.allOtherChains.givbacks.map((item: DonationResponse) => {
+      if (download === "yes") {
+        const csv = parse(response.allChains.givbacks.map((item: DonationResponse) => {
           return {
             givDistributed,
             givPrice,
@@ -893,37 +697,11 @@ app.get(`/calculate-updated`,
             ...item
           }
         }));
-        const fileName = `givbackReport_allOtherChains_${start}-${end}.csv`;
+        const fileName = `givbackReport_allChains_${start}-${end}.csv`;
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
         res.setHeader('Content-type', 'application/json');
         res.send(csv)
-      } else if (download === "gnosis") {
-        const csv = parse(response.gnosis.givbacks.map((item: DonationResponse) => {
-          return {
-            givDistributed,
-            givPrice,
-            givbackUsdValue: givPrice * item.givback,
-            ...item
-          }
-        }));
-        const fileName = `givbackReport_gnosis_${start}-${end}.csv`;
-        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-        res.setHeader('Content-type', 'application/json');
-        res.send(csv)
-      } else if (download === "zkEVM") {
-        const csv = parse(response.zkEVM.givbacks.map((item: DonationResponse) => {
-          return {
-            givDistributed,
-            givPrice,
-            givbackUsdValue: givPrice * item.givback,
-            ...item
-          }
-        }));
-        const fileName = `givbackReport_zkEVM_${start}-${end}.csv`;
-        res.setHeader('Content-disposition', "attachment; filename=" + fileName);
-        res.setHeader('Content-type', 'application/json');
-        res.send(csv)
-      } else if (download === 'NICE') {
+      }  else if (download === 'NICE') {
         const csv = parse(response.niceTokens);
         const fileName = `givbackReport_NICE_${start}-${end}.csv`;
         res.setHeader('Content-disposition', "attachment; filename=" + fileName);
@@ -947,10 +725,11 @@ app.get(`/current-round`, async (req: Request, res: Response) => {
     try {
       const result = await getCurrentGIVbacksRound()
       res.send(result)
-    } catch (e: any) {console.log('/current-round error', {
-      error: e,
-      req,
-    })
+    } catch (e: any) {
+      console.log('/current-round error', {
+        error: e,
+        req,
+      })
       res.status(400).send({errorMessage: e.message})
     }
   }

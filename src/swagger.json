@@ -75,7 +75,7 @@
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
-            "enum": ["no", "gnosis","all-other-chains", "NICE", "zkEVM" ],
+            "enum": ["no", "yes" ],
             "in": "query"
           }
         ],
@@ -91,14 +91,7 @@
       "get": {
         "description": "Return all donations to verifed projects/campaigns and purpleList addresses are excluded",
         "parameters": [
-          {
-            "name": "chain",
-            "type": "string",
-            "description": "For Gnosis we need to distribute on Gnosis chain so we should have different response",
-            "default": "all-other-chains",
-            "enum": ["all-other-chains","gnosis","zkEVM"],
-            "in": "query"
-          },
+
           {
             "name": "startDate",
             "type": "string",
@@ -207,14 +200,7 @@
       "get": {
         "description": "Return all donations to unVerified projects/campaigns and donations to verified projects/campains from purple list addresses",
         "parameters": [
-          {
-            "name": "chain",
-            "type": "string",
-            "description": "For Gnosis we need to distribute on Gnosis chain so we should have different response",
-            "default": "all-other-chains",
-            "enum": ["all-other-chains","gnosis","zkEVM"],
-            "in": "query"
-          },
+
           {
             "name": "startDate",
             "type": "string",
@@ -450,7 +436,7 @@
             "type": "string",
             "description": "If you want to see json here set no, but if you want to download a file set yes",
             "default": "no",
-            "enum": ["no", "gnosis","all-other-chains", "NICE", "zkEVM"],
+            "enum": ["no", "yes"],
             "in": "query"
           }
         ],
