@@ -20,14 +20,14 @@ const _ = require('underscore')
 
 import {
   donationValueAfterGivFactor,
-  filterDonationsWithPurpleList,
+  filterDonationsWithPurpleList, groupDonationsByParentRecurringId,
   purpleListDonations
 } from './commonServices'
 import {
   calculateReferralRewardFromRemainingAmount,
   calculateReferralReward,
   getNetworkNameById,
-   isDonationAmountValid
+  isDonationAmountValid
 } from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
@@ -142,7 +142,7 @@ export const getEligibleDonations = async (
     `;
 
     const result = await request(`${givethiobaseurl}/graphql`, query)
-    const rawDonationsFilterByChain = result.donations
+    const rawDonationsFilterByChain = groupDonationsByParentRecurringId(result.donations)
     let donationsToVerifiedProjects: GivethIoDonation[] = rawDonationsFilterByChain
       .filter(
         (donation: GivethIoDonation) =>
@@ -153,7 +153,7 @@ export const getEligibleDonations = async (
             donation,
             minEligibleValueUsd,
             givethCommunityProjectSlug,
-          } )
+          })
           && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
           && donation.isProjectGivbackEligible
           && donation.status === 'verified'
@@ -170,7 +170,6 @@ export const getEligibleDonations = async (
             && (!donation.isProjectGivbackEligible || donation.valueUsd >= minEligibleValueUsd)
             && donation.status === 'verified'
           )
-
       )
 
     if (niceWhitelistTokens) {
@@ -381,7 +380,7 @@ export const getDonationsReport = async (params: {
   beginDate: string,
   endDate: string,
   minEligibleValueUsd: number,
-  givethCommunityProjectSlug:string,
+  givethCommunityProjectSlug: string,
   niceWhitelistTokens?: string[],
   niceProjectSlugs?: string[],
   applyChainvineReferral?: boolean,

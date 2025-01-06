@@ -188,7 +188,7 @@ app.get(`/calculate`,
       const givDistributed = Math.ceil(raisedValueSumAfterGivFactor / givPrice);
 
       // https://github.com/Giveth/givback-calculation/issues/35#issuecomment-1716106403
-      const optimismRelayerAddress = '0xf13e93af5e706ab3073e393e77bb2d7ce7bec01f'
+      // const optimismRelayerAddress = '0xf13e93af5e706ab3073e393e77bb2d7ce7bec01f'
       const response = {
         raisedValueSumExcludedPurpleList: Math.ceil(raisedValueSum),
         givDistributed,
