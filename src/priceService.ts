@@ -64,7 +64,11 @@ export const getEthGivPriceInMainnet = async (blockNumber:number):Promise<number
         }`
   ;
   const requestBody = {query}
-  const result = await axios.post(givEconomyMainnetSubgraphUrl, requestBody)
+  const result = await axios.post(givEconomyMainnetSubgraphUrl, requestBody, {
+    headers: {
+      origin: 'https://giveth.io',
+    }
+  })
     console.log('result.data  ', result.data)
 
     const uniswapV3Pool = result.data && result.data.data && result.data.data.uniswapV3Pool;

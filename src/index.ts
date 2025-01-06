@@ -18,7 +18,6 @@ const {parse} = require('json2csv');
 const swaggerDocument = require('./swagger.json');
 import {
   convertMinimalDonationToDonationResponse,
-  createSmartContractCallAddBatchParams,
   getDonationsForSmartContractParams
 } from "./utils";
 import {
@@ -195,15 +194,16 @@ app.get(`/calculate`,
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
         allChains: {
-          smartContractParams: await createSmartContractCallAddBatchParams(
-            {
-              nrGIVAddress,
-              donationsWithShare: allChainsDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: optimismRelayerAddress,
-              network: 'optimism'
-            },
-            Number(maxAddressesPerFunctionCall) || 200
-          ),
+          // smartContractParams: await createSmartContractCallAddBatchParams(
+          //   {
+          //     nrGIVAddress,
+          //     donationsWithShare: allChainsDonationsWithShare.filter(givback => givback.givback > 0),
+          //     givRelayerAddress: optimismRelayerAddress,
+          //     network: 'optimism'
+          //   },
+          //   Number(maxAddressesPerFunctionCall) || 200
+          // ),
+          smartContractParams:'No need for smartContractParams',
           givbacks: allChainsDonationsWithShare
         },
         niceTokens: niceDonationsWithShareFormatted,
@@ -243,7 +243,6 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
   try {
     const {
       endDate, startDate, download, justCountListed,
-      chain
     } = req.query;
     const minEligibleValueUsd = Number(req.query.minEligibleValueUsd)
     const givethCommunityProjectSlug = req.query.givethCommunityProjectSlug
@@ -640,7 +639,7 @@ app.get(`/calculate-updated`,
 
 
       const totalDonationsWithShare = convertMinimalDonationToDonationResponse({
-        minimalDonationsArray: groupByGiverAddressForTotalDonations,
+        minimalDonationsArray: totalMinimalDonations,
         givPrice,
         raisedValueSum
       })
@@ -671,15 +670,16 @@ app.get(`/calculate-updated`,
         givDistributed,
         givethioDonationsAmount: Math.ceil(totalDonationsAmount),
         allChains: {
-          smartContractParams: await createSmartContractCallAddBatchParams(
-            {
-              nrGIVAddress,
-              donationsWithShare: totalDonationsWithShare.filter(givback => givback.givback > 0),
-              givRelayerAddress: optimismRelayerAddress,
-              network: 'optimism'
-            },
-            Number(maxAddressesPerFunctionCall) || 200
-          ),
+          // smartContractParams: await createSmartContractCallAddBatchParams(
+          //   {
+          //     nrGIVAddress,
+          //     donationsWithShare: totalDonationsWithShare.filter(givback => givback.givback > 0),
+          //     givRelayerAddress: optimismRelayerAddress,
+          //     network: 'optimism'
+          //   },
+          //   Number(maxAddressesPerFunctionCall) || 200
+          // ),
+          smartContractParams:'No need for smartContractParams',
           givbacks: totalDonationsWithShare
         },
         niceTokens: niceDonationsWithShareFormatted,
