@@ -275,11 +275,18 @@ export const getEligibleDonations = async (
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
-    return eligible ?
-      await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects, disablePurpleList) :
-      (
-        await purpleListDonations(formattedDonationsToVerifiedProjects, disablePurpleList)
-      ).concat(formattedDonationsToNotVerifiedProjects)
+    return eligible
+      ? await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects, disablePurpleList)
+
+      // Remove duplicates
+      : Array.from(
+        new Map(
+          (
+            await purpleListDonations(formattedDonationsToVerifiedProjects, disablePurpleList)
+          ).concat(formattedDonationsToNotVerifiedProjects)
+            .map(donation => [donation.txHash, donation]) // Map to ensure uniqueness
+        ).values()
+      );
 
   } catch (e) {
     console.log('getEligibleDonations() error', {
