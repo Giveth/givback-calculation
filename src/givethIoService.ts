@@ -68,7 +68,6 @@ export const getEligibleDonations = async (
     niceWhitelistTokens?: string[],
     niceProjectSlugs?: string[],
     eligible?: boolean,
-    disablePurpleList?: boolean,
     justCountListed?: boolean,
   }): Promise<FormattedDonation[]> => {
   try {
@@ -77,7 +76,7 @@ export const getEligibleDonations = async (
       endDate,
       niceWhitelistTokens,
       niceProjectSlugs,
-      disablePurpleList,
+      // disablePurpleList,
       justCountListed,
       minEligibleValueUsd,
       givethCommunityProjectSlug
@@ -167,7 +166,7 @@ export const getEligibleDonations = async (
             && moment(donation.createdAt) > firstDate
             && donation.valueUsd
             && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
-            && (!donation.isProjectGivbackEligible || donation.valueUsd >= minEligibleValueUsd)
+            && !donation.isProjectGivbackEligible
             && donation.status === 'verified'
           )
       )
@@ -275,18 +274,23 @@ export const getEligibleDonations = async (
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
-    return eligible
-      ? await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects, disablePurpleList)
+    const eligibleDonations =  await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects)
+    const notEligibleDonations = (
+      await purpleListDonations(formattedDonationsToVerifiedProjects)
+    ).concat(formattedDonationsToNotVerifiedProjects)
+    const eligibleTxHashes = new Set(eligibleDonations.map(donation => donation.txHash));
+    const commonDonations = notEligibleDonations.filter(donation => eligibleTxHashes.has(donation.txHash));
 
-      // Remove duplicates
-      : Array.from(
-        new Map(
-          (
-            await purpleListDonations(formattedDonationsToVerifiedProjects, disablePurpleList)
-          ).concat(formattedDonationsToNotVerifiedProjects)
-            .map(donation => [donation.txHash, donation]) // Map to ensure uniqueness
-        ).values()
-      );
+
+    console.log('donations length', {
+      eligibleDonations: eligibleDonations.length,
+      notEligibleDonations: notEligibleDonations.length,
+
+      // It should be zero
+      commonDonations: commonDonations.length
+    })
+    return eligible ? eligibleDonations : notEligibleDonations
+
 
   } catch (e) {
     console.log('getEligibleDonations() error', {
@@ -408,7 +412,6 @@ export const getDonationsReport = async (params: {
         beginDate, endDate,
         niceWhitelistTokens,
         niceProjectSlugs,
-        disablePurpleList: Boolean(niceWhitelistTokens),
         minEligibleValueUsd,
         givethCommunityProjectSlug,
       })
