@@ -324,8 +324,18 @@ export const getBlockByTimestamp = async (timestamp: number, chainId: number) :P
 }
 
 export const isDonationAmountValid = (params: {
-  donation: GivethIoDonation, minEligibleValueUsd: number, givethCommunityProjectSlug:string
+  donation: GivethIoDonation,
+  minEligibleValueUsd: number,
+  givethCommunityProjectSlug: string
 }): boolean => {
-  const { donation, minEligibleValueUsd, givethCommunityProjectSlug } = params
-  return donation.valueUsd >= minEligibleValueUsd || donation.project.slug === givethCommunityProjectSlug
-}
+  const { donation, minEligibleValueUsd, givethCommunityProjectSlug } = params;
+
+  // Check if donation is to the specified Giveth community project
+  if (donation.project.slug === givethCommunityProjectSlug) {
+    // https://github.com/Giveth/GIVeconomy/issues/916
+    return donation.valueUsd > 0.05; // Only consider if value is greater than $0.05
+  }
+
+  // For all other projects, use the minEligibleValueUsd check
+  return donation.valueUsd >= minEligibleValueUsd;
+};
