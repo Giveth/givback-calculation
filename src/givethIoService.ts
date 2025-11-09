@@ -1,20 +1,19 @@
+import TokenDistroJSON from '../abi/TokenDistroV2.json';
+import { GIVETH_TOKEN_DISTRO_ADDRESS } from "./subgraphService";
 import {
   FormattedDonation,
-  GivbackFactorParams,
+  GIVbacksRound,
   GivethIoDonation,
   MinimalDonation,
-  Project,
-  GIVbacksRound
+  Project
 } from "./types/general";
-import {GIVETH_TOKEN_DISTRO_ADDRESS} from "./subgraphService";
-import TokenDistroJSON from '../abi/TokenDistroV2.json'
 
 const Ethers = require("ethers");
-const {isAddress} = require("ethers");
+const { isAddress } = require("ethers");
 
 require('dotenv').config()
 
-const {gql, request} = require('graphql-request');
+const { gql, request } = require('graphql-request');
 const moment = require('moment')
 const _ = require('underscore')
 
@@ -22,10 +21,10 @@ import {
   donationValueAfterGivFactor,
   filterDonationsWithPurpleList, groupDonationsByParentRecurringId,
   purpleListDonations
-} from './commonServices'
+} from './commonServices';
 import {
-  calculateReferralRewardFromRemainingAmount,
   calculateReferralReward,
+  calculateReferralRewardFromRemainingAmount,
   getNetworkNameById,
   isDonationAmountValid
 } from "./utils";
@@ -121,6 +120,19 @@ export const getEligibleDonations = async (
              id
              txHash
             }
+            swapTransaction {
+              firstTxHash
+              fromAmount
+              fromTokenSymbol
+              fromChainId
+              fromTokenAddress
+              toAmount
+              toTokenSymbol
+              toChainId
+              toTokenAddress
+              squidRequestId
+              status
+            }
             project {
               slug
               verified
@@ -161,14 +173,14 @@ export const getEligibleDonations = async (
     let donationsToNotVerifiedProjects: GivethIoDonation[] = rawDonationsFilterByChain
       .filter(
         (donation: GivethIoDonation) =>
-          (
-            moment(donation.createdAt) < secondDate
-            && moment(donation.createdAt) > firstDate
-            && donation.valueUsd
-            && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
-            && !donation.isProjectGivbackEligible
-            && donation.status === 'verified'
-          )
+        (
+          moment(donation.createdAt) < secondDate
+          && moment(donation.createdAt) > firstDate
+          && donation.valueUsd
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
+          && !donation.isProjectGivbackEligible
+          && donation.status === 'verified'
+        )
       )
 
     if (niceWhitelistTokens) {
@@ -212,9 +224,17 @@ export const getEligibleDonations = async (
     const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
       // Old donations dont have givbackFactor, so I use 0.5 for them
       const givbackFactor = item.givbackFactor || 0.75;
+
+      // Use origin transaction data for swap donations (squid router)
+      const isSwapDonation = !!item.swapTransaction;
+      const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
+      const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
+      const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
+      const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
+
       return {
-        amount: item.amount,
-        currency: item.currency,
+        amount,
+        currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
         anonymous: item.anonymous,
@@ -227,8 +247,8 @@ export const getEligibleDonations = async (
           givFactor: item.givbackFactor
         }),
         giverAddress: donationGiverAddress(item),
-        txHash: item.transactionId,
-        network: getNetworkNameById(item.transactionNetworkId),
+        txHash,
+        network: getNetworkNameById(networkId),
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
         giverEmail: item && item.user && item.user.email,
@@ -245,10 +265,18 @@ export const getEligibleDonations = async (
 
     const formattedDonationsToNotVerifiedProjects: FormattedDonation[] = donationsToNotVerifiedProjects.map(item => {
       const givbackFactor = item.givbackFactor || 0.5;
+
+      // Use origin transaction data for swap donations (squid router)
+      const isSwapDonation = !!item.swapTransaction;
+      const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
+      const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
+      const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
+      const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
+
       return {
-        amount: item.amount,
+        amount,
         anonymous: item.anonymous,
-        currency: item.currency,
+        currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
         valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
@@ -260,8 +288,8 @@ export const getEligibleDonations = async (
         bottomRankInRound: item.powerRound,
         givbacksRound: item.powerRound,
         giverAddress: donationGiverAddress(item),
-        txHash: item.transactionId,
-        network: getNetworkNameById(item.transactionNetworkId),
+        txHash,
+        network: getNetworkNameById(networkId),
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
         giverEmail: item && item.user && item.user.email,
@@ -274,7 +302,7 @@ export const getEligibleDonations = async (
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
-    const eligibleDonations =  await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects)
+    const eligibleDonations = await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects)
     const notEligibleDonations = (
       await purpleListDonations(formattedDonationsToVerifiedProjects)
     ).concat(formattedDonationsToNotVerifiedProjects)
@@ -330,6 +358,19 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
             amount
             chainType
             isProjectGivbackEligible
+            swapTransaction {
+              firstTxHash
+              fromAmount
+              fromTokenSymbol
+              fromChainId
+              fromTokenAddress
+              toAmount
+              toTokenSymbol
+              toChainId
+              toTokenAddress
+              squidRequestId
+              status
+            }
             project {
               slug
               verified
@@ -359,15 +400,22 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
 
 
     const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map((item: GivethIoDonation) => {
+      // Use origin transaction data for swap donations (squid router)
+      const isSwapDonation = !!item.swapTransaction;
+      const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
+      const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
+      const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
+      const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
+
       return {
-        amount: item.amount,
-        currency: item.currency,
+        amount,
+        currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
         givbackFactor: item.givbackFactor,
         giverAddress: donationGiverAddress(item),
-        txHash: item.transactionId,
-        network: getNetworkNameById(item.transactionNetworkId),
+        txHash,
+        network: getNetworkNameById(networkId),
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
         giverEmail: item && item.user && item.user.email,
