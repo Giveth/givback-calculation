@@ -16,7 +16,6 @@ export interface FormattedDonation {
   projectLink?: string,
   niceTokens?: string,
   info?: string,
-
   isReferrerGivbackEligible?: boolean,
   referrerWallet?: string
   referrer?: boolean,
@@ -24,8 +23,7 @@ export interface FormattedDonation {
   anonymous: boolean,
   parentRecurringDonationId?: string,
   parentRecurringDonationTxHash?: string,
-
-
+  valueUsdAfterGivbackFactor?: number,
 }
 
 export interface GivethIoDonation {
@@ -50,7 +48,7 @@ export interface GivethIoDonation {
     walletAddress: string
   }
 
-  recurringDonation ?: {
+  recurringDonation?: {
     id: string,
     txHash: string
   }
@@ -63,6 +61,20 @@ export interface GivethIoDonation {
     }
   }
 
+  swapTransaction?: {
+    firstTxHash: string,
+    fromAmount: number,
+    fromTokenSymbol: string,
+    fromChainId: number,
+    fromTokenAddress: string,
+    toAmount: number,
+    toTokenSymbol: string,
+    toChainId: number,
+    toTokenAddress: string,
+    squidRequestId?: string,
+    status: string
+  }
+
   // giverName: string
   // giverEmail: string,
   status: string,
@@ -70,7 +82,7 @@ export interface GivethIoDonation {
   isProjectGivbackEligible: boolean,
   isReferrerGivbackEligible?: boolean,
   referrerWallet?: string
-  numberOfStreamedDonations ?: number
+  numberOfStreamedDonations?: number
 }
 
 export interface DonationResponse {
