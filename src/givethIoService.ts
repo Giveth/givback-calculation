@@ -35,6 +35,9 @@ const givethV6CoreApiUrl = process.env.GIVETH_V6_CORE_API_URL
 const givethV6CoreApiPassword = process.env.POWER_SYNC_PASSWORD
 const givethV6CoreApiPasswordHeader =
   process.env.POWER_SYNC_PASSWORD_HEADER || 'x-power-sync-password'
+const givethV6CoreApiTimeoutMs = Number(
+  process.env.GIVETH_V6_CORE_API_TIMEOUT_MS || 15000,
+)
 const xdaiNodeHttpUrl = process.env.XDAI_NODE_HTTP_URL
 const twoWeeksInMilliseconds = 1209600000
 console.log()
@@ -70,26 +73,34 @@ const getV6EligibleDonations = async (
     return []
   }
 
-  const response = await axios.get(
-    `${givethV6CoreApiUrl.replace(/\/$/, '')}/api/internal/givbacks/donations`,
-    {
-      headers: {
-        [givethV6CoreApiPasswordHeader]: givethV6CoreApiPassword,
+  let response
+  try {
+    response = await axios.get(
+      `${givethV6CoreApiUrl.replace(/\/$/, '')}/api/internal/givbacks/donations`,
+      {
+        headers: {
+          [givethV6CoreApiPasswordHeader]: givethV6CoreApiPassword,
+        },
+        params: {
+          fromDate: params.beginDate,
+          toDate: params.endDate,
+          minEligibleValueUsd: params.minEligibleValueUsd,
+          givethCommunityProjectSlug: params.givethCommunityProjectSlug,
+          ...(params.niceWhitelistTokens?.length
+            ? { niceWhitelistTokens: params.niceWhitelistTokens.join(',') }
+            : {}),
+          ...(params.niceProjectSlugs?.length
+            ? { niceProjectSlugs: params.niceProjectSlugs.join(',') }
+            : {}),
+        },
+        timeout: givethV6CoreApiTimeoutMs,
       },
-      params: {
-        fromDate: params.beginDate,
-        toDate: params.endDate,
-        minEligibleValueUsd: params.minEligibleValueUsd,
-        givethCommunityProjectSlug: params.givethCommunityProjectSlug,
-        ...(params.niceWhitelistTokens?.length
-          ? { niceWhitelistTokens: params.niceWhitelistTokens.join(',') }
-          : {}),
-        ...(params.niceProjectSlugs?.length
-          ? { niceProjectSlugs: params.niceProjectSlugs.join(',') }
-          : {}),
-      },
-    },
-  )
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.log('Skipping v6 Core donations: request failed', message)
+    return []
+  }
 
   const rows = response?.data?.data
   if (!Array.isArray(rows)) {
@@ -105,12 +116,29 @@ const getV6EligibleDonations = async (
   }))
 }
 
-const donationDedupeKey = (donation: FormattedDonation): string => {
+const normalizeDedupeValue = (value?: string | number): string => {
+  return String(value || '').trim().toLowerCase()
+}
+
+const donationDedupeIdentifiers = (donation: FormattedDonation): string[] => {
+  const identifiers: string[] = []
   if (donation.parentRecurringDonationId) {
-    return `recurring:${donation.parentRecurringDonationId}`
+    identifiers.push(
+      `recurring:${normalizeDedupeValue(donation.parentRecurringDonationId)}`,
+    )
   }
 
-  return `tx:${donation.network}:${donation.txHash}`.toLowerCase()
+  const txHash = normalizeDedupeValue(donation.txHash)
+  const network = normalizeDedupeValue(donation.network)
+  if (txHash || network) {
+    identifiers.push(`tx:${network}:${txHash}`)
+  }
+
+  return identifiers
+}
+
+const donationDedupeKey = (donation: FormattedDonation): string => {
+  return donationDedupeIdentifiers(donation).join('|')
 }
 
 const mergeAndDedupeDonations = (
@@ -118,11 +146,27 @@ const mergeAndDedupeDonations = (
   additionalDonations: FormattedDonation[],
 ): FormattedDonation[] => {
   const donationsByKey = new Map<string, FormattedDonation>()
+  const canonicalKeyByIdentifier = new Map<string, string>()
 
   for (const donation of donations.concat(additionalDonations)) {
     const key = donationDedupeKey(donation)
-    if (!donationsByKey.has(key)) {
+    const identifiers = donationDedupeIdentifiers(donation)
+    const existingKey = identifiers
+      .map(identifier => canonicalKeyByIdentifier.get(identifier))
+      .find(Boolean)
+
+    if (existingKey) {
+      identifiers.forEach(identifier =>
+        canonicalKeyByIdentifier.set(identifier, existingKey),
+      )
+      continue
+    }
+
+    if (key && !donationsByKey.has(key)) {
       donationsByKey.set(key, donation)
+      identifiers.forEach(identifier =>
+        canonicalKeyByIdentifier.set(identifier, key),
+      )
     }
   }
 
@@ -384,8 +428,14 @@ export const getEligibleDonations = async (
     const notEligibleDonations = (
       await purpleListDonations(formattedDonationsToVerifiedProjects)
     ).concat(formattedDonationsToNotVerifiedProjects)
-    const eligibleTxHashes = new Set(eligibleDonations.map(donation => donation.txHash));
-    const commonDonations = notEligibleDonations.filter(donation => eligibleTxHashes.has(donation.txHash));
+    const eligibleDonationKeys = new Set(
+      eligibleDonations.flatMap(donation => donationDedupeIdentifiers(donation)),
+    )
+    const commonDonations = notEligibleDonations.filter(donation =>
+      donationDedupeIdentifiers(donation).some(key =>
+        eligibleDonationKeys.has(key),
+      ),
+    )
 
 
     console.log('donations length', {
