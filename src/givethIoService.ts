@@ -130,7 +130,7 @@ const donationDedupeIdentifiers = (donation: FormattedDonation): string[] => {
 
   const txHash = normalizeDedupeValue(donation.txHash)
   const network = normalizeDedupeValue(donation.network)
-  if (txHash || network) {
+  if (txHash && network) {
     identifiers.push(`tx:${network}:${txHash}`)
   }
 
@@ -156,6 +156,24 @@ const mergeAndDedupeDonations = (
       .find(Boolean)
 
     if (existingKey) {
+      const existingDonation = donationsByKey.get(existingKey)
+      const shouldPromoteIncomingDonation =
+        Boolean(donation.parentRecurringDonationId) &&
+        !existingDonation?.parentRecurringDonationId
+
+      if (key && existingDonation && shouldPromoteIncomingDonation) {
+        donationsByKey.delete(existingKey)
+        donationsByKey.set(key, donation)
+        const promotedIdentifiers = [
+          ...donationDedupeIdentifiers(existingDonation),
+          ...identifiers,
+        ]
+        promotedIdentifiers.forEach(identifier =>
+          canonicalKeyByIdentifier.set(identifier, key),
+        )
+        continue
+      }
+
       identifiers.forEach(identifier =>
         canonicalKeyByIdentifier.set(identifier, existingKey),
       )
