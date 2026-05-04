@@ -1,20 +1,20 @@
+import TokenDistroJSON from '../abi/TokenDistroV2.json';
+import { GIVETH_TOKEN_DISTRO_ADDRESS } from "./subgraphService";
 import {
   FormattedDonation,
-  GivbackFactorParams,
+  GIVbacksRound,
   GivethIoDonation,
   MinimalDonation,
-  Project,
-  GIVbacksRound
+  Project
 } from "./types/general";
-import {GIVETH_TOKEN_DISTRO_ADDRESS} from "./subgraphService";
-import TokenDistroJSON from '../abi/TokenDistroV2.json'
 
 const Ethers = require("ethers");
-const {isAddress} = require("ethers");
+const { isAddress } = require("ethers");
 
 require('dotenv').config()
 
-const {gql, request} = require('graphql-request');
+const { gql, request } = require('graphql-request');
+const axios = require('axios');
 const moment = require('moment')
 const _ = require('underscore')
 
@@ -22,15 +22,22 @@ import {
   donationValueAfterGivFactor,
   filterDonationsWithPurpleList, groupDonationsByParentRecurringId,
   purpleListDonations
-} from './commonServices'
+} from './commonServices';
 import {
-  calculateReferralRewardFromRemainingAmount,
   calculateReferralReward,
+  calculateReferralRewardFromRemainingAmount,
   getNetworkNameById,
   isDonationAmountValid
 } from "./utils";
 
 const givethiobaseurl = process.env.GIVETHIO_BASE_URL
+const givethV6CoreApiUrl = process.env.GIVETH_V6_CORE_API_URL
+const givethV6CoreApiPassword = process.env.POWER_SYNC_PASSWORD
+const givethV6CoreApiPasswordHeader =
+  process.env.POWER_SYNC_PASSWORD_HEADER || 'x-power-sync-password'
+const givethV6CoreApiTimeoutMs = Number(
+  process.env.GIVETH_V6_CORE_API_TIMEOUT_MS || 15000,
+)
 const xdaiNodeHttpUrl = process.env.XDAI_NODE_HTTP_URL
 const twoWeeksInMilliseconds = 1209600000
 console.log()
@@ -50,6 +57,138 @@ const isStellarDonationAndUserLoggedInWithEvmAddress = (donation: GivethIoDonati
 
 const donationGiverAddress = (donation: GivethIoDonation): string => {
   return isStellarDonationAndUserLoggedInWithEvmAddress(donation) ? donation.user.walletAddress : donation.fromWalletAddress
+}
+
+const getV6EligibleDonations = async (
+  params: {
+    beginDate: string,
+    endDate: string,
+    minEligibleValueUsd: number,
+    givethCommunityProjectSlug: string,
+    niceWhitelistTokens?: string[],
+    niceProjectSlugs?: string[],
+  }): Promise<FormattedDonation[]> => {
+  if (!givethV6CoreApiUrl || !givethV6CoreApiPassword) {
+    console.log('Skipping v6 Core donations: missing GIVETH_V6_CORE_API_URL or POWER_SYNC_PASSWORD')
+    return []
+  }
+
+  let response
+  try {
+    response = await axios.get(
+      `${givethV6CoreApiUrl.replace(/\/$/, '')}/api/internal/givbacks/donations`,
+      {
+        headers: {
+          [givethV6CoreApiPasswordHeader]: givethV6CoreApiPassword,
+        },
+        params: {
+          fromDate: params.beginDate,
+          toDate: params.endDate,
+          minEligibleValueUsd: params.minEligibleValueUsd,
+          givethCommunityProjectSlug: params.givethCommunityProjectSlug,
+          ...(params.niceWhitelistTokens?.length
+            ? { niceWhitelistTokens: params.niceWhitelistTokens.join(',') }
+            : {}),
+          ...(params.niceProjectSlugs?.length
+            ? { niceProjectSlugs: params.niceProjectSlugs.join(',') }
+            : {}),
+        },
+        timeout: givethV6CoreApiTimeoutMs,
+      },
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.log('Skipping v6 Core donations: request failed', message)
+    return []
+  }
+
+  const rows = response?.data?.data
+  if (!Array.isArray(rows)) {
+    return []
+  }
+
+  return rows.map((row: FormattedDonation) => ({
+    ...row,
+    giverName: row.giverName || '',
+    giverEmail: row.giverEmail || '',
+    isReferrerGivbackEligible: Boolean(row.isReferrerGivbackEligible),
+    referrerWallet: row.referrerWallet || undefined,
+  }))
+}
+
+const normalizeDedupeValue = (value?: string | number): string => {
+  return String(value || '').trim().toLowerCase()
+}
+
+const donationDedupeIdentifiers = (donation: FormattedDonation): string[] => {
+  const identifiers: string[] = []
+  if (donation.parentRecurringDonationId) {
+    identifiers.push(
+      `recurring:${normalizeDedupeValue(donation.parentRecurringDonationId)}`,
+    )
+  }
+
+  const txHash = normalizeDedupeValue(donation.txHash)
+  const network = normalizeDedupeValue(donation.network)
+  if (txHash && network) {
+    identifiers.push(`tx:${network}:${txHash}`)
+  }
+
+  return identifiers
+}
+
+const donationDedupeKey = (donation: FormattedDonation): string => {
+  return donationDedupeIdentifiers(donation).join('|')
+}
+
+const mergeAndDedupeDonations = (
+  donations: FormattedDonation[],
+  additionalDonations: FormattedDonation[],
+): FormattedDonation[] => {
+  const donationsByKey = new Map<string, FormattedDonation>()
+  const canonicalKeyByIdentifier = new Map<string, string>()
+
+  for (const donation of donations.concat(additionalDonations)) {
+    const key = donationDedupeKey(donation)
+    const identifiers = donationDedupeIdentifiers(donation)
+    const existingKey = identifiers
+      .map(identifier => canonicalKeyByIdentifier.get(identifier))
+      .find(Boolean)
+
+    if (existingKey) {
+      const existingDonation = donationsByKey.get(existingKey)
+      const shouldPromoteIncomingDonation =
+        Boolean(donation.parentRecurringDonationId) &&
+        !existingDonation?.parentRecurringDonationId
+
+      if (key && existingDonation && shouldPromoteIncomingDonation) {
+        donationsByKey.delete(existingKey)
+        donationsByKey.set(key, donation)
+        const promotedIdentifiers = [
+          ...donationDedupeIdentifiers(existingDonation),
+          ...identifiers,
+        ]
+        promotedIdentifiers.forEach(identifier =>
+          canonicalKeyByIdentifier.set(identifier, key),
+        )
+        continue
+      }
+
+      identifiers.forEach(identifier =>
+        canonicalKeyByIdentifier.set(identifier, existingKey),
+      )
+      continue
+    }
+
+    if (key && !donationsByKey.has(key)) {
+      donationsByKey.set(key, donation)
+      identifiers.forEach(identifier =>
+        canonicalKeyByIdentifier.set(identifier, key),
+      )
+    }
+  }
+
+  return Array.from(donationsByKey.values())
 }
 
 /**
@@ -121,6 +260,19 @@ export const getEligibleDonations = async (
              id
              txHash
             }
+            swapTransaction {
+              firstTxHash
+              fromAmount
+              fromTokenSymbol
+              fromChainId
+              fromTokenAddress
+              toAmount
+              toTokenSymbol
+              toChainId
+              toTokenAddress
+              squidRequestId
+              status
+            }
             project {
               slug
               verified
@@ -161,14 +313,14 @@ export const getEligibleDonations = async (
     let donationsToNotVerifiedProjects: GivethIoDonation[] = rawDonationsFilterByChain
       .filter(
         (donation: GivethIoDonation) =>
-          (
-            moment(donation.createdAt) < secondDate
-            && moment(donation.createdAt) > firstDate
-            && donation.valueUsd
-            && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
-            && !donation.isProjectGivbackEligible
-            && donation.status === 'verified'
-          )
+        (
+          moment(donation.createdAt) < secondDate
+          && moment(donation.createdAt) > firstDate
+          && donation.valueUsd
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
+          && !donation.isProjectGivbackEligible
+          && donation.status === 'verified'
+        )
       )
 
     if (niceWhitelistTokens) {
@@ -212,9 +364,17 @@ export const getEligibleDonations = async (
     const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
       // Old donations dont have givbackFactor, so I use 0.5 for them
       const givbackFactor = item.givbackFactor || 0.75;
+
+      // Use origin transaction data for swap donations (squid router)
+      const isSwapDonation = !!item.swapTransaction;
+      const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
+      const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
+      const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
+      const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
+
       return {
-        amount: item.amount,
-        currency: item.currency,
+        amount,
+        currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
         anonymous: item.anonymous,
@@ -227,8 +387,8 @@ export const getEligibleDonations = async (
           givFactor: item.givbackFactor
         }),
         giverAddress: donationGiverAddress(item),
-        txHash: item.transactionId,
-        network: getNetworkNameById(item.transactionNetworkId),
+        txHash,
+        network: getNetworkNameById(networkId),
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
         giverEmail: item && item.user && item.user.email,
@@ -245,10 +405,18 @@ export const getEligibleDonations = async (
 
     const formattedDonationsToNotVerifiedProjects: FormattedDonation[] = donationsToNotVerifiedProjects.map(item => {
       const givbackFactor = item.givbackFactor || 0.5;
+
+      // Use origin transaction data for swap donations (squid router)
+      const isSwapDonation = !!item.swapTransaction;
+      const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
+      const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
+      const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
+      const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
+
       return {
-        amount: item.amount,
+        amount,
         anonymous: item.anonymous,
-        currency: item.currency,
+        currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
         valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
@@ -260,8 +428,8 @@ export const getEligibleDonations = async (
         bottomRankInRound: item.powerRound,
         givbacksRound: item.powerRound,
         giverAddress: donationGiverAddress(item),
-        txHash: item.transactionId,
-        network: getNetworkNameById(item.transactionNetworkId),
+        txHash,
+        network: getNetworkNameById(networkId),
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
         giverEmail: item && item.user && item.user.email,
@@ -274,12 +442,18 @@ export const getEligibleDonations = async (
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
-    const eligibleDonations =  await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects)
+    const eligibleDonations = await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects)
     const notEligibleDonations = (
       await purpleListDonations(formattedDonationsToVerifiedProjects)
     ).concat(formattedDonationsToNotVerifiedProjects)
-    const eligibleTxHashes = new Set(eligibleDonations.map(donation => donation.txHash));
-    const commonDonations = notEligibleDonations.filter(donation => eligibleTxHashes.has(donation.txHash));
+    const eligibleDonationKeys = new Set(
+      eligibleDonations.flatMap(donation => donationDedupeIdentifiers(donation)),
+    )
+    const commonDonations = notEligibleDonations.filter(donation =>
+      donationDedupeIdentifiers(donation).some(key =>
+        eligibleDonationKeys.has(key),
+      ),
+    )
 
 
     console.log('donations length', {
@@ -289,7 +463,20 @@ export const getEligibleDonations = async (
       // It should be zero
       commonDonations: commonDonations.length
     })
-    return eligible ? eligibleDonations : notEligibleDonations
+    if (!eligible) {
+      return notEligibleDonations
+    }
+
+    const v6EligibleDonations = await getV6EligibleDonations({
+      beginDate,
+      endDate,
+      niceWhitelistTokens,
+      niceProjectSlugs,
+      minEligibleValueUsd,
+      givethCommunityProjectSlug,
+    })
+
+    return mergeAndDedupeDonations(eligibleDonations, v6EligibleDonations)
 
 
   } catch (e) {
@@ -330,6 +517,19 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
             amount
             chainType
             isProjectGivbackEligible
+            swapTransaction {
+              firstTxHash
+              fromAmount
+              fromTokenSymbol
+              fromChainId
+              fromTokenAddress
+              toAmount
+              toTokenSymbol
+              toChainId
+              toTokenAddress
+              squidRequestId
+              status
+            }
             project {
               slug
               verified
@@ -359,15 +559,22 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
 
 
     const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map((item: GivethIoDonation) => {
+      // Use origin transaction data for swap donations (squid router)
+      const isSwapDonation = !!item.swapTransaction;
+      const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
+      const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
+      const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
+      const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
+
       return {
-        amount: item.amount,
-        currency: item.currency,
+        amount,
+        currency,
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
         valueUsd: item.valueUsd,
         givbackFactor: item.givbackFactor,
         giverAddress: donationGiverAddress(item),
-        txHash: item.transactionId,
-        network: getNetworkNameById(item.transactionNetworkId),
+        txHash,
+        network: getNetworkNameById(networkId),
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
         giverEmail: item && item.user && item.user.email,
