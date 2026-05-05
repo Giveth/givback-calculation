@@ -45,6 +45,38 @@ const app = express();
 
 swaggerDocument.info.version = version
 
+const donationCsvFields = [
+  'amount',
+  'currency',
+  'createdAt',
+  'valueUsd',
+  'givbackFactor',
+  'projectRank',
+  'bottomRankInRound',
+  'givbacksRound',
+  'giverAddress',
+  'txHash',
+  'network',
+  'source',
+  'giverName',
+  'giverEmail',
+  'projectLink',
+  'niceTokens',
+  'info',
+  'isReferrerGivbackEligible',
+  'referrerWallet',
+  'referrer',
+  'referred',
+  'anonymous',
+  'parentRecurringDonationId',
+  'parentRecurringDonationTxHash',
+  'valueUsdAfterGivbackFactor',
+]
+
+const parseDonationCsv = (donations: FormattedDonation[]): string => {
+  return parse(donations, {fields: donationCsvFields})
+}
+
 // swaggerDocument.basePath = process.env.NODE_ENV === 'staging' ? '/staging' : '/'
 // const swaggerPrefix = process.env.NODE_ENV === 'staging' ? '/staging' : ''
 // https://stackoverflow.com/a/58052537/4650625
@@ -262,7 +294,7 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
       })
 
     if (download === 'yes') {
-      const csv = parse(donations);
+      const csv = parseDonationCsv(donations);
       const fileName = `${eligible ? 'eligible-donations' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
@@ -310,7 +342,7 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
 
 
     if (download === 'yes') {
-      const csv = parse(donations);
+      const csv = parseDonationCsv(donations);
       const fileName = `${eligible ? 'eligible-donations-for-nice-tokens' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
@@ -355,7 +387,7 @@ app.get(`/purpleList-donations-to-verifiedProjects`, async (req: Request, res: R
       })
 
     if (download === 'yes') {
-      const csv = parse(donations);
+      const csv = parseDonationCsv(donations);
       const fileName = `purpleList-donations-to-verifiedProjectz-${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
