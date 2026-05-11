@@ -141,6 +141,19 @@ const donationDedupeKey = (donation: FormattedDonation): string => {
   return donationDedupeIdentifiers(donation).join('|')
 }
 
+const preserveParentRecurringDonationTxHash = (
+  target: FormattedDonation,
+  source: FormattedDonation,
+): void => {
+  if (
+    !target.parentRecurringDonationTxHash &&
+    source.parentRecurringDonationTxHash
+  ) {
+    target.parentRecurringDonationTxHash =
+      source.parentRecurringDonationTxHash
+  }
+}
+
 const mergeAndDedupeDonations = (
   donations: FormattedDonation[],
   additionalDonations: FormattedDonation[],
@@ -160,6 +173,11 @@ const mergeAndDedupeDonations = (
       const shouldPromoteIncomingDonation =
         Boolean(donation.parentRecurringDonationId) &&
         !existingDonation?.parentRecurringDonationId
+
+      if (existingDonation) {
+        preserveParentRecurringDonationTxHash(existingDonation, donation)
+        preserveParentRecurringDonationTxHash(donation, existingDonation)
+      }
 
       if (key && existingDonation && shouldPromoteIncomingDonation) {
         donationsByKey.delete(existingKey)
