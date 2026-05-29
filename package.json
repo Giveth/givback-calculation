@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:unit": "ts-node --project ./tsconfig.json test/givbacksRoundReport.test.ts && ts-node --project ./tsconfig.json test/purpleListExport.test.ts",
+    "test:unit": "for f in givbacksRoundReport purpleListExport eligibilityThreshold mergeDedupe adminAuth; do ts-node --project ./tsconfig.json test/$f.test.ts || exit 1; done",
     "startOld": "nodemon src/index.js",
     "build": "tsc --project ./",
     "start": " ts-node-dev --project ./tsconfig.json --respawn ./src/index.ts"

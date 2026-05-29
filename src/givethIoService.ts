@@ -283,7 +283,7 @@ const preserveParentRecurringDonationTxHash = (
   }
 }
 
-const mergeAndDedupeDonations = (
+export const mergeAndDedupeDonations = (
   donations: FormattedDonation[],
   additionalDonations: FormattedDonation[],
 ): FormattedDonation[] => {

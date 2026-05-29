@@ -1,8 +1,12 @@
 import { Request, Response, NextFunction } from 'express'
 import { timingSafeEqual } from 'crypto'
 
-const ADMIN_EXPORT_USERNAME = process.env.ADMIN_EXPORT_USERNAME || 'admin'
-const ADMIN_EXPORT_PASSWORD = process.env.ADMIN_EXPORT_PASSWORD
+// Read at call time (not module load) so the value is correct regardless of
+// when dotenv runs, and so the guard is unit-testable.
+const getAdminCredentials = (): { username: string; password?: string } => ({
+  username: process.env.ADMIN_EXPORT_USERNAME || 'admin',
+  password: process.env.ADMIN_EXPORT_PASSWORD,
+})
 
 const secretsMatch = (provided: string, expected: string): boolean => {
   const providedBuffer = Buffer.from(provided)
@@ -34,7 +38,8 @@ export const adminExportAuth = (
   res: Response,
   next: NextFunction,
 ) => {
-  if (!ADMIN_EXPORT_PASSWORD) {
+  const credentials = getAdminCredentials()
+  if (!credentials.password) {
     console.log('ADMIN_EXPORT_PASSWORD is not set; refusing admin export request')
     return challenge(res, 'Admin export auth is not configured')
   }
@@ -51,8 +56,8 @@ export const adminExportAuth = (
   const password = separatorIndex === -1 ? '' : decoded.slice(separatorIndex + 1)
 
   if (
-    username === ADMIN_EXPORT_USERNAME &&
-    secretsMatch(password, ADMIN_EXPORT_PASSWORD)
+    username === credentials.username &&
+    secretsMatch(password, credentials.password)
   ) {
     return next()
   }
