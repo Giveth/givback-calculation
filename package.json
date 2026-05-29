@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:unit": "ts-node --project ./tsconfig.json test/givbacksRoundReport.test.ts && ts-node --project ./tsconfig.json test/purpleListExport.test.ts",
     "startOld": "nodemon src/index.js",
     "build": "tsc --project ./",
     "start": " ts-node-dev --project ./tsconfig.json --respawn ./src/index.ts"
