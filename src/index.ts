@@ -30,8 +30,19 @@ import {
   getAllProjectsSortByRank,
   getDonationsReport,
   getEligibleDonations,
+  getGivbacksRoundDonations,
   getVerifiedPurpleListDonations
 } from './givethIoService'
+
+import {
+  buildGivbacksRoundReport,
+  parseRoundDonationsCsv
+} from './givbacksRoundReportService'
+import {
+  getPurpleListExportRows,
+  parsePurpleListCsv
+} from './purpleListExportService'
+import {adminExportAuth} from './adminAuth'
 
 import {getPurpleList} from './commonServices'
 import {get_dumpers_list} from "./subgraphService";
@@ -85,6 +96,7 @@ const parseDonationCsv = (donations: FormattedDonation[]): string => {
 app.use(`/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get(`/calculate`,
+  adminExportAuth,
   async (req: Request, res: Response) => {
     try {
       console.log('start calculating')
@@ -358,25 +370,25 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
   }
 }
 
-app.get(`/eligible-donations`, async (req: Request, res: Response) => {
+app.get(`/eligible-donations`, adminExportAuth, async (req: Request, res: Response) => {
   await getEligibleAndNonEligibleDonations(req, res, true)
 })
-app.get(`/getAllProjectsSortByRank`, async (req: Request, res: Response) => {
+app.get(`/getAllProjectsSortByRank`, adminExportAuth, async (req: Request, res: Response) => {
   const result = await getAllProjectsSortByRank()
   res.send(result)
 })
 
 
-app.get(`/eligible-donations-for-nice-token`, async (req: Request, res: Response) => {
+app.get(`/eligible-donations-for-nice-token`, adminExportAuth, async (req: Request, res: Response) => {
   await getEligibleDonationsForNiceToken(req, res)
 })
 
-app.get(`/not-eligible-donations`, async (req: Request, res: Response) => {
+app.get(`/not-eligible-donations`, adminExportAuth, async (req: Request, res: Response) => {
   await getEligibleAndNonEligibleDonations(req, res, false)
 })
 
 
-app.get(`/purpleList-donations-to-verifiedProjects`, async (req: Request, res: Response) => {
+app.get(`/purpleList-donations-to-verifiedProjects`, adminExportAuth, async (req: Request, res: Response) => {
   try {
     const {endDate, startDate, download} = req.query;
     const givethIoDonations = await getVerifiedPurpleListDonations(startDate as string, endDate as string);
@@ -476,7 +488,7 @@ app.get('/givPrice', async (req: Request, res: Response) => {
 })
 
 
-app.get('/purpleList', async (req: Request, res: Response) => {
+app.get('/purpleList', adminExportAuth, async (req: Request, res: Response) => {
   try {
 
     res.json({purpleList: await getPurpleList()})
@@ -488,7 +500,7 @@ app.get('/purpleList', async (req: Request, res: Response) => {
     res.status(400).send({errorMessage: e.message})
   }
 })
-app.get('/givDumpers', async (req: Request, res: Response) => {
+app.get('/givDumpers', adminExportAuth, async (req: Request, res: Response) => {
   try {
     res.json(
       await get_dumpers_list({
@@ -506,7 +518,7 @@ app.get('/givDumpers', async (req: Request, res: Response) => {
   }
 })
 
-app.get('/token_distro_assign_histories', async (req: Request, res: Response) => {
+app.get('/token_distro_assign_histories', adminExportAuth, async (req: Request, res: Response) => {
   try {
     const {tokenDistroAddress, uniPoolAddress, rpcUrl} = req.query;
     res.json(
@@ -527,6 +539,7 @@ app.get('/token_distro_assign_histories', async (req: Request, res: Response) =>
 
 
 app.get(`/calculate-updated`,
+  adminExportAuth,
   async (req: Request, res: Response) => {
     try {
       console.log('start calculating')
@@ -752,6 +765,105 @@ app.get(`/calculate-updated`,
       })
     }
   })
+
+// Issue #323: GIVbacks Round Donation Export + Prize Pool Calculator.
+// Inputs: startDate / endDate (UTC, format YYYY/MM/DD-HH:mm:ss), maxPrizePool
+// (GIV). Optional: givPrice (else computed at round end), minEligibleValueUsd,
+// givethCommunityProjectSlug, includeAllDonations=yes (eligible + ineligible),
+// download=yes (CSV). Returns the per-donation export + prize-pool summary.
+app.get(`/givbacks-round-report`, adminExportAuth, async (req: Request, res: Response) => {
+  try {
+    const {
+      startDate, endDate, download, includeAllDonations,
+      givethCommunityProjectSlug
+    } = req.query;
+
+    if (!startDate || !endDate) {
+      throw new Error('startDate and endDate are required')
+    }
+
+    const maxPrizePool = Number(req.query.maxPrizePool)
+    if (!Number.isFinite(maxPrizePool) || maxPrizePool <= 0) {
+      throw new Error('maxPrizePool must be a positive number')
+    }
+
+    const minEligibleValueUsd = Number(req.query.minEligibleValueUsd) || 0
+    const includeIneligible = includeAllDonations === 'yes'
+
+    // GIV price at the end of the round (issue #323). An explicit override may be
+    // passed for reproducing historical numbers without on-chain lookups.
+    let givPrice = Number(req.query.givPrice)
+    if (!Number.isFinite(givPrice) || givPrice <= 0) {
+      const endDateTimestamp = moment(endDate as string, 'YYYY/MM/DD-HH:mm:ss').unix()
+      const priceBlock = await getBlockByTimestamp(endDateTimestamp, 1)
+      const givPriceInETH = await getEthGivPriceInMainnet(priceBlock)
+      const ethPrice = await getEthPriceTimeStamp(endDateTimestamp)
+      givPrice = givPriceInETH * ethPrice
+      console.log('/givbacks-round-report computed GIV price', {
+        endDateTimestamp, priceBlock, givPriceInETH, ethPrice, givPrice
+      })
+    }
+
+    const donations = await getGivbacksRoundDonations(
+      {
+        beginDate: startDate as string,
+        endDate: endDate as string,
+        minEligibleValueUsd,
+        givethCommunityProjectSlug: givethCommunityProjectSlug as string,
+      },
+      includeIneligible,
+    )
+
+    const report = buildGivbacksRoundReport({
+      donations,
+      givPrice,
+      maxPrizePool,
+      roundStartTime: startDate as string,
+      roundEndTime: endDate as string,
+    })
+
+    if (download === 'yes') {
+      const csv = parseRoundDonationsCsv(report.donations)
+      const scope = includeIneligible ? 'all' : 'eligible'
+      const fileName = `givbacks-round-donations-${scope}-${startDate}-${endDate}.csv`
+      res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
+      res.setHeader('Content-type', 'text/csv')
+      res.send(csv)
+    } else {
+      res.send({
+        ...report.summary,
+        includeAllDonations: includeIneligible,
+        totalDonationsInExport: report.donations.length,
+        donations: report.donations,
+      })
+    }
+  } catch (e: any) {
+    console.log('/givbacks-round-report error', { error: e })
+    res.status(400).send({ message: e.message })
+  }
+})
+
+// Issue #323: export the current GIVbacks purple list (addresses excluded from
+// receiving GIVbacks) separately from the donation export.
+app.get(`/givbacks-purple-list`, adminExportAuth, async (req: Request, res: Response) => {
+  try {
+    const { download } = req.query;
+    const rows = await getPurpleListExportRows()
+
+    if (download === 'yes') {
+      const csv = parsePurpleListCsv(rows)
+      const fileName = `givbacks-purple-list-${new Date().toISOString()}.csv`
+      res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
+      res.setHeader('Content-type', 'text/csv')
+      res.send(csv)
+    } else {
+      res.send({ totalAddresses: rows.length, purpleList: rows })
+    }
+  } catch (e: any) {
+    console.log('/givbacks-purple-list error', { error: e })
+    res.status(400).send({ message: e.message })
+  }
+})
 
 app.get(`/current-round`, async (req: Request, res: Response) => {
     try {

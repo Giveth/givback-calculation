@@ -59,6 +59,70 @@ const donationGiverAddress = (donation: GivethIoDonation): string => {
   return isStellarDonationAndUserLoggedInWithEvmAddress(donation) ? donation.user.walletAddress : donation.fromWalletAddress
 }
 
+// "Master" donor name = the donor's full profile name. v5 has no dedicated
+// column, so we compose first + last name and fall back to the display name.
+const composeDonorMasterName = (user?: {
+  name?: string,
+  firstName?: string,
+  lastName?: string
+}): string | undefined => {
+  if (!user) {
+    return undefined
+  }
+  const fullName = [user.firstName, user.lastName]
+    .filter(part => typeof part === 'string' && part.trim().length > 0)
+    .join(' ')
+    .trim()
+  return fullName || user.name || undefined
+}
+
+// Formats a donation to a GIVbacks-eligible (verified) project. Shared between
+// the eligible list and the below-minimum ineligible list (issue #323) so both
+// paths produce identical row shapes.
+const formatVerifiedProjectDonation = (item: GivethIoDonation) => {
+  // Old donations dont have givbackFactor, so I use 0.5 for them
+  const givbackFactor = item.givbackFactor || 0.75;
+
+  // Use origin transaction data for swap donations (squid router)
+  const isSwapDonation = !!item.swapTransaction;
+  const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
+  const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
+  const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
+  const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
+
+  return {
+    amount,
+    currency,
+    createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+    valueUsd: item.valueUsd,
+    anonymous: item.anonymous,
+    bottomRankInRound: item.bottomRankInRound,
+    givbacksRound: item.powerRound,
+    projectRank: item.projectRank,
+    givbackFactor,
+    valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
+      usdValue: item.valueUsd,
+      givFactor: item.givbackFactor
+    }),
+    giverAddress: donationGiverAddress(item),
+    txHash,
+    network: getNetworkNameById(networkId),
+    source: 'giveth.io',
+    giverName: item && item.user && item.user.name,
+    giverEmail: item && item.user && item.user.email,
+    donorMasterName: composeDonorMasterName(item.user),
+    projectLink: `https://giveth.io/project/${item.project.slug}`,
+    isProjectGivbacksEligible: item.isProjectGivbackEligible,
+
+    isReferrerGivbackEligible: item.isReferrerGivbackEligible,
+    referrerWallet: item.referrerWallet,
+
+    numberOfStreamedDonations: item.numberOfStreamedDonations,
+    parentRecurringDonationId: item?.recurringDonation?.id,
+    parentRecurringDonationTxHash: item?.recurringDonation?.txHash
+  }
+}
+
 const getV6EligibleDonations = async (
   params: {
     beginDate: string,
@@ -67,6 +131,7 @@ const getV6EligibleDonations = async (
     givethCommunityProjectSlug: string,
     niceWhitelistTokens?: string[],
     niceProjectSlugs?: string[],
+    includeIneligible?: boolean,
   }): Promise<FormattedDonation[]> => {
   if (!givethV6CoreApiUrl || !givethV6CoreApiPassword) {
     console.log('Skipping v6 Core donations: missing GIVETH_V6_CORE_API_URL or POWER_SYNC_PASSWORD')
@@ -92,6 +157,7 @@ const getV6EligibleDonations = async (
           ...(params.niceProjectSlugs?.length
             ? { niceProjectSlugs: params.niceProjectSlugs.join(',') }
             : {}),
+          ...(params.includeIneligible ? { includeIneligible: 'true' } : {}),
         },
         timeout: givethV6CoreApiTimeoutMs,
       },
@@ -111,9 +177,53 @@ const getV6EligibleDonations = async (
     ...row,
     giverName: row.giverName || '',
     giverEmail: row.giverEmail || '',
+    // v6 Core reports its own eligibility; default to true for back-compat with
+    // the existing eligible-only feed where the flag is omitted.
+    isDonationGivbacksEligible: row.isDonationGivbacksEligible !== false,
     isReferrerGivbackEligible: Boolean(row.isReferrerGivbackEligible),
     referrerWallet: row.referrerWallet || undefined,
   }))
+}
+
+/**
+ * GIVbacks round export (issue #323) data source: returns every donation in the
+ * window from BOTH v5 (giveth.io) and v6 Core, each tagged with
+ * `isDonationGivbacksEligible`. When `includeIneligible` is false only eligible
+ * donations are returned (same set the existing calculator uses).
+ */
+export const getGivbacksRoundDonations = async (
+  params: {
+    beginDate: string,
+    endDate: string,
+    minEligibleValueUsd: number,
+    givethCommunityProjectSlug: string,
+  },
+  includeIneligible: boolean,
+): Promise<FormattedDonation[]> => {
+  const eligibleDonations = (await getEligibleDonations({ ...params, eligible: true }))
+    .map(donation => ({ ...donation, isDonationGivbacksEligible: true }))
+
+  if (!includeIneligible) {
+    return eligibleDonations
+  }
+
+  const [v5IneligibleDonations, v6AllDonations] = await Promise.all([
+    getEligibleDonations({
+      ...params,
+      eligible: false,
+      includeBelowMinDonations: true,
+    }),
+    getV6EligibleDonations({ ...params, includeIneligible: true }),
+  ])
+
+  const ineligibleDonations = [
+    ...v5IneligibleDonations,
+    ...v6AllDonations.filter(donation => donation.isDonationGivbacksEligible === false),
+  ].map(donation => ({ ...donation, isDonationGivbacksEligible: false }))
+
+  // Eligible rows are passed first so they win on any tx/recurring key collision
+  // (a donation must never appear as both eligible and ineligible).
+  return mergeAndDedupeDonations(eligibleDonations, ineligibleDonations)
 }
 
 const normalizeDedupeValue = (value?: string | number): string => {
@@ -226,6 +336,7 @@ export const getEligibleDonations = async (
     niceProjectSlugs?: string[],
     eligible?: boolean,
     justCountListed?: boolean,
+    includeBelowMinDonations?: boolean,
   }): Promise<FormattedDonation[]> => {
   try {
     const {
@@ -236,7 +347,8 @@ export const getEligibleDonations = async (
       // disablePurpleList,
       justCountListed,
       minEligibleValueUsd,
-      givethCommunityProjectSlug
+      givethCommunityProjectSlug,
+      includeBelowMinDonations,
     } = params
     const eligible = params.eligible === undefined ? true : params.eligible
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
@@ -301,6 +413,8 @@ export const getEligibleDonations = async (
             }
             user {
               name
+              firstName
+              lastName
               email
               walletAddress
             }
@@ -379,47 +493,9 @@ export const getEligibleDonations = async (
             donation.project.listed
         )
     }
-    const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
-      // Old donations dont have givbackFactor, so I use 0.5 for them
-      const givbackFactor = item.givbackFactor || 0.75;
-
-      // Use origin transaction data for swap donations (squid router)
-      const isSwapDonation = !!item.swapTransaction;
-      const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
-      const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
-      const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
-      const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
-
-      return {
-        amount,
-        currency,
-        createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
-        valueUsd: item.valueUsd,
-        anonymous: item.anonymous,
-        bottomRankInRound: item.bottomRankInRound,
-        givbacksRound: item.powerRound,
-        projectRank: item.projectRank,
-        givbackFactor,
-        valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
-          usdValue: item.valueUsd,
-          givFactor: item.givbackFactor
-        }),
-        giverAddress: donationGiverAddress(item),
-        txHash,
-        network: getNetworkNameById(networkId),
-        source: 'giveth.io',
-        giverName: item && item.user && item.user.name,
-        giverEmail: item && item.user && item.user.email,
-        projectLink: `https://giveth.io/project/${item.project.slug}`,
-
-        isReferrerGivbackEligible: item.isReferrerGivbackEligible,
-        referrerWallet: item.referrerWallet,
-
-        numberOfStreamedDonations: item.numberOfStreamedDonations,
-        parentRecurringDonationId: item?.recurringDonation?.id,
-        parentRecurringDonationTxHash: item?.recurringDonation?.txHash
-      }
-    });
+    const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(
+      formatVerifiedProjectDonation,
+    );
 
     const formattedDonationsToNotVerifiedProjects: FormattedDonation[] = donationsToNotVerifiedProjects.map(item => {
       const givbackFactor = item.givbackFactor || 0.5;
@@ -451,7 +527,9 @@ export const getEligibleDonations = async (
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
         giverEmail: item && item.user && item.user.email,
+        donorMasterName: composeDonorMasterName(item.user),
         projectLink: `https://giveth.io/project/${item.project.slug}`,
+        isProjectGivbacksEligible: item.isProjectGivbackEligible,
 
         isReferrerGivbackEligible: item.isReferrerGivbackEligible,
         referrerWallet: item.referrerWallet,
@@ -460,10 +538,51 @@ export const getEligibleDonations = async (
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
+    // Donations to GIVbacks-eligible projects that pass every check EXCEPT the
+    // minimum-USD threshold. They are genuinely ineligible, but the verified
+    // filter above drops them, so the default "all donations" export would miss
+    // them. Included only when explicitly requested (issue #323 audit mode) so
+    // existing eligible/not-eligible endpoints are unaffected.
+    let belowMinFormattedDonations: FormattedDonation[] = []
+    if (includeBelowMinDonations) {
+      let belowMinDonations = rawDonationsFilterByChain.filter(
+        (donation: GivethIoDonation) =>
+          moment(donation.createdAt) < secondDate
+          && moment(donation.createdAt) > firstDate
+          && donation.valueUsd
+          && !isDonationAmountValid({
+            donation,
+            minEligibleValueUsd,
+            givethCommunityProjectSlug,
+          })
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
+          && donation.isProjectGivbackEligible
+          && donation.status === 'verified',
+      )
+      if (niceWhitelistTokens) {
+        belowMinDonations = belowMinDonations.filter(donation =>
+          niceWhitelistTokens.includes(donation.currency),
+        )
+      }
+      if (niceProjectSlugs) {
+        belowMinDonations = belowMinDonations.filter(donation =>
+          niceProjectSlugs.includes(donation.project.slug),
+        )
+      }
+      if (justCountListed) {
+        belowMinDonations = belowMinDonations.filter(
+          donation => donation.project.listed,
+        )
+      }
+      belowMinFormattedDonations = belowMinDonations.map(
+        formatVerifiedProjectDonation,
+      )
+    }
+
     const eligibleDonations = await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects)
     const notEligibleDonations = (
       await purpleListDonations(formattedDonationsToVerifiedProjects)
-    ).concat(formattedDonationsToNotVerifiedProjects)
+    ).concat(formattedDonationsToNotVerifiedProjects, belowMinFormattedDonations)
     const eligibleDonationKeys = new Set(
       eligibleDonations.flatMap(donation => donationDedupeIdentifiers(donation)),
     )

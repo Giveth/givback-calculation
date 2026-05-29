@@ -311,6 +311,30 @@ export const calculateReferralRewardFromRemainingAmount = (valueUsdAfterDeductio
   return calculateReferralReward(originalValue)
 }
 
+// Block-explorer transaction URL by network name (as returned by
+// getNetworkNameById). Used to build the `txLink` column of the GIVbacks round
+// export (issue #323). Returns undefined for unknown networks / missing hashes.
+const TX_EXPLORER_BASE_URL_BY_NETWORK: Record<string, string> = {
+  mainnet: 'https://etherscan.io/tx/',
+  optimism: 'https://optimistic.etherscan.io/tx/',
+  gnosis: 'https://gnosisscan.io/tx/',
+  polygon: 'https://polygonscan.com/tx/',
+  celo: 'https://celoscan.io/tx/',
+  arbitrum: 'https://arbiscan.io/tx/',
+  'base-mainnet': 'https://basescan.org/tx/',
+  'zkevm-mainnet': 'https://zkevm.polygonscan.com/tx/',
+  'zkevm-cardona': 'https://cardona-zkevm.polygonscan.com/tx/',
+  stellar: 'https://stellar.expert/explorer/public/tx/',
+}
+
+export const getTransactionLink = (network: string, txHash: string): string | undefined => {
+  const baseUrl = TX_EXPLORER_BASE_URL_BY_NETWORK[network]
+  if (!baseUrl || !txHash) {
+    return undefined
+  }
+  return `${baseUrl}${txHash}`
+}
+
 export const getBlockByTimestamp = async (timestamp: number, chainId: number) :Promise<number>=> {
   try {
     const url = `https://api.findblock.xyz/v1/chain/${chainId}/block/before/${timestamp}?inclusive=true`
