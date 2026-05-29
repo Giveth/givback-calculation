@@ -59,6 +59,18 @@ const donationGiverAddress = (donation: GivethIoDonation): string => {
   return isStellarDonationAndUserLoggedInWithEvmAddress(donation) ? donation.user.walletAddress : donation.fromWalletAddress
 }
 
+// Converts an API date (YYYY/MM/DD-HH:mm:ss) into the giveth.io GraphQL literal
+// (YYYYMMDD HH:mm:ss). The result is interpolated directly into the GraphQL
+// query string, so anything that isn't exactly digits/space/colons is rejected
+// to prevent GraphQL injection through the date params.
+const toGivethIoQueryDate = (apiDate: string, fieldName: string): string => {
+  const queryDate = String(apiDate || '').split('/').join('').replace('-', ' ')
+  if (!/^\d{8} \d{2}:\d{2}:\d{2}$/.test(queryDate)) {
+    throw new Error(`Invalid ${fieldName}`)
+  }
+  return queryDate
+}
+
 // "Master" donor name = the donor's full profile name. v5 has no dedicated
 // column, so we compose first + last name and fall back to the display name.
 const composeDonorMasterName = (user?: {
@@ -93,7 +105,7 @@ const formatVerifiedProjectDonation = (item: GivethIoDonation) => {
   return {
     amount,
     currency,
-    createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+    createdAt: moment(item.createdAt).format('YYYY-MM-DD-HH:mm:ss'),
     valueUsd: item.valueUsd,
     anonymous: item.anonymous,
     bottomRankInRound: item.bottomRankInRound,
@@ -164,8 +176,10 @@ const getV6EligibleDonations = async (
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.log('Skipping v6 Core donations: request failed', message)
-    return []
+    // v6 Core is configured but unreachable. Throw instead of returning [] so the
+    // GIVbacks calculations/exports never silently undercount on a v5-only
+    // dataset; callers surface this as an error and the run can be retried.
+    throw new Error(`Failed to fetch v6 Core donations: ${message}`)
   }
 
   const rows = response?.data?.data
@@ -200,7 +214,11 @@ export const getGivbacksRoundDonations = async (
   },
   includeIneligible: boolean,
 ): Promise<FormattedDonation[]> => {
-  const eligibleDonations = (await getEligibleDonations({ ...params, eligible: true }))
+  const eligibleDonations = (await getEligibleDonations({
+    ...params,
+    eligible: true,
+    enforceTokenEligibility: true,
+  }))
     .map(donation => ({ ...donation, isDonationGivbacksEligible: true }))
 
   if (!includeIneligible) {
@@ -212,6 +230,7 @@ export const getGivbacksRoundDonations = async (
       ...params,
       eligible: false,
       includeBelowMinDonations: true,
+      enforceTokenEligibility: true,
     }),
     getV6EligibleDonations({ ...params, includeIneligible: true }),
   ])
@@ -337,6 +356,7 @@ export const getEligibleDonations = async (
     eligible?: boolean,
     justCountListed?: boolean,
     includeBelowMinDonations?: boolean,
+    enforceTokenEligibility?: boolean,
   }): Promise<FormattedDonation[]> => {
   try {
     const {
@@ -349,6 +369,7 @@ export const getEligibleDonations = async (
       minEligibleValueUsd,
       givethCommunityProjectSlug,
       includeBelowMinDonations,
+      enforceTokenEligibility,
     } = params
     const eligible = params.eligible === undefined ? true : params.eligible
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
@@ -363,8 +384,8 @@ export const getEligibleDonations = async (
     }
 
     // givethio get time in this format YYYYMMDD HH:m:ss
-    const fromDate = beginDate.split('/').join('').replace('-', ' ')
-    const toDate = endDate.split('/').join('').replace('-', ' ')
+    const fromDate = toGivethIoQueryDate(beginDate, 'startDate')
+    const toDate = toGivethIoQueryDate(endDate, 'endDate')
     const query = gql`
         {
           donations(
@@ -381,6 +402,7 @@ export const getEligibleDonations = async (
             chainType
             anonymous
             isProjectGivbackEligible
+            isTokenEligibleForGivback
             projectRank
             powerRound
             bottomRankInRound
@@ -439,6 +461,10 @@ export const getEligibleDonations = async (
           })
           && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
           && donation.isProjectGivbackEligible
+          // Token GIVbacks eligibility (issue #323 AC #6). Opt-in so existing
+          // calculator endpoints keep their current behavior; only the round
+          // export enables it, matching the v6 Core rule.
+          && (!enforceTokenEligibility || donation.isTokenEligibleForGivback)
           && donation.status === 'verified'
       )
 
@@ -511,7 +537,7 @@ export const getEligibleDonations = async (
         amount,
         anonymous: item.anonymous,
         currency,
-        createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+        createdAt: moment(item.createdAt).format('YYYY-MM-DD-HH:mm:ss'),
         valueUsd: item.valueUsd,
         valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
           usdValue: item.valueUsd,
@@ -538,43 +564,47 @@ export const getEligibleDonations = async (
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
-    // Donations to GIVbacks-eligible projects that pass every check EXCEPT the
-    // minimum-USD threshold. They are genuinely ineligible, but the verified
-    // filter above drops them, so the default "all donations" export would miss
-    // them. Included only when explicitly requested (issue #323 audit mode) so
-    // existing eligible/not-eligible endpoints are unaffected.
-    let belowMinFormattedDonations: FormattedDonation[] = []
+    // Donations to GIVbacks-eligible projects that pass the base checks but fail
+    // donation-level eligibility (below the minimum USD threshold, or — when
+    // enforced — a non-eligible token). They are genuinely ineligible, but the
+    // verified filter above drops them, so the default "all donations" export
+    // would miss them. Included only when explicitly requested (issue #323 audit
+    // mode) so existing eligible/not-eligible endpoints are unaffected.
+    let ineligibleVerifiedProjectDonations: FormattedDonation[] = []
     if (includeBelowMinDonations) {
-      let belowMinDonations = rawDonationsFilterByChain.filter(
+      let extras = rawDonationsFilterByChain.filter(
         (donation: GivethIoDonation) =>
           moment(donation.createdAt) < secondDate
           && moment(donation.createdAt) > firstDate
           && donation.valueUsd
-          && !isDonationAmountValid({
-            donation,
-            minEligibleValueUsd,
-            givethCommunityProjectSlug,
-          })
           && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
           && donation.isProjectGivbackEligible
-          && donation.status === 'verified',
+          && donation.status === 'verified'
+          // Not eligible at the donation level: fails the amount minimum, or
+          // (when enforced) the token is not GIVbacks-eligible.
+          && !(
+            isDonationAmountValid({
+              donation,
+              minEligibleValueUsd,
+              givethCommunityProjectSlug,
+            })
+            && (!enforceTokenEligibility || donation.isTokenEligibleForGivback)
+          ),
       )
       if (niceWhitelistTokens) {
-        belowMinDonations = belowMinDonations.filter(donation =>
+        extras = extras.filter(donation =>
           niceWhitelistTokens.includes(donation.currency),
         )
       }
       if (niceProjectSlugs) {
-        belowMinDonations = belowMinDonations.filter(donation =>
+        extras = extras.filter(donation =>
           niceProjectSlugs.includes(donation.project.slug),
         )
       }
       if (justCountListed) {
-        belowMinDonations = belowMinDonations.filter(
-          donation => donation.project.listed,
-        )
+        extras = extras.filter(donation => donation.project.listed)
       }
-      belowMinFormattedDonations = belowMinDonations.map(
+      ineligibleVerifiedProjectDonations = extras.map(
         formatVerifiedProjectDonation,
       )
     }
@@ -582,7 +612,7 @@ export const getEligibleDonations = async (
     const eligibleDonations = await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects)
     const notEligibleDonations = (
       await purpleListDonations(formattedDonationsToVerifiedProjects)
-    ).concat(formattedDonationsToNotVerifiedProjects, belowMinFormattedDonations)
+    ).concat(formattedDonationsToNotVerifiedProjects, ineligibleVerifiedProjectDonations)
     const eligibleDonationKeys = new Set(
       eligibleDonations.flatMap(donation => donationDedupeIdentifiers(donation)),
     )
@@ -638,8 +668,8 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
       throw new Error('Invalid endDate')
     }
     // givethio get time in this format YYYYMMDD HH:m:ss
-    const fromDate = beginDate.split('/').join('').replace('-', ' ')
-    const toDate = endDate.split('/').join('').replace('-', ' ')
+    const fromDate = toGivethIoQueryDate(beginDate, 'startDate')
+    const toDate = toGivethIoQueryDate(endDate, 'endDate')
     const query = gql`
         {
           donations(
@@ -706,7 +736,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
       return {
         amount,
         currency,
-        createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+        createdAt: moment(item.createdAt).format('YYYY-MM-DD-HH:mm:ss'),
         valueUsd: item.valueUsd,
         givbackFactor: item.givbackFactor,
         giverAddress: donationGiverAddress(item),

@@ -89,6 +89,7 @@ export interface GivethIoDonation {
   status: string,
   anonymous: boolean,
   isProjectGivbackEligible: boolean,
+  isTokenEligibleForGivback?: boolean,
   isReferrerGivbackEligible?: boolean,
   referrerWallet?: string
   numberOfStreamedDonations?: number

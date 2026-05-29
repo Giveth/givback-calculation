@@ -93,7 +93,7 @@ const parseDonationCsv = (donations: FormattedDonation[]): string => {
 // https://stackoverflow.com/a/58052537/4650625
 // app.use(`${swaggerPrefix}/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.use(`/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(`/api-docs`, adminExportAuth, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get(`/calculate`,
   adminExportAuth,
@@ -451,7 +451,7 @@ app.get(`/purpleList-donations-to-verifiedProjects`, adminExportAuth, async (req
 //     }
 // })
 
-app.get('/givPrice', async (req: Request, res: Response) => {
+app.get('/givPrice', adminExportAuth, async (req: Request, res: Response) => {
   try {
     let {blockNumber, txHash, network = 'xdai'} = req.query;
     let realBlockNumber = Number(blockNumber)
@@ -481,7 +481,8 @@ app.get('/givPrice', async (req: Request, res: Response) => {
   } catch (e: any) {
     console.log('/givPrice error', {
       error: e,
-      req,
+      url: req.originalUrl,
+      query: req.query,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -495,7 +496,8 @@ app.get('/purpleList', adminExportAuth, async (req: Request, res: Response) => {
   } catch (e: any) {
     console.log('/purpleList error', {
       error: e,
-      req,
+      url: req.originalUrl,
+      query: req.query,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -512,7 +514,8 @@ app.get('/givDumpers', adminExportAuth, async (req: Request, res: Response) => {
   } catch (e: any) {
     console.log('/givDumpers error', {
       error: e,
-      req,
+      url: req.originalUrl,
+      query: req.query,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -531,7 +534,8 @@ app.get('/token_distro_assign_histories', adminExportAuth, async (req: Request, 
   } catch (e: any) {
     console.log('/token_distro_assign_histories error', {
       error: e,
-      req,
+      url: req.originalUrl,
+      query: req.query,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -758,7 +762,8 @@ app.get(`/calculate-updated`,
     } catch (e: any) {
       console.log('/calculate-updated error', {
         error: e,
-        req,
+        url: req.originalUrl,
+        query: req.query,
       })
       res.status(400).send({
         message: e.message
@@ -865,14 +870,15 @@ app.get(`/givbacks-purple-list`, adminExportAuth, async (req: Request, res: Resp
   }
 })
 
-app.get(`/current-round`, async (req: Request, res: Response) => {
+app.get(`/current-round`, adminExportAuth, async (req: Request, res: Response) => {
     try {
       const result = await getCurrentGIVbacksRound()
       res.send(result)
     } catch (e: any) {
       console.log('/current-round error', {
         error: e,
-        req,
+        url: req.originalUrl,
+        query: req.query,
       })
       res.status(400).send({errorMessage: e.message})
     }

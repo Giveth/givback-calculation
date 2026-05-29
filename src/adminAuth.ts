@@ -24,9 +24,10 @@ const challenge = (res: Response, message: string) => {
  * they must not be public. Fails closed when ADMIN_EXPORT_PASSWORD is not
  * configured.
  *
- * Applied per-route in src/index.ts. The only intentionally public routes are
- * /current-round, /givPrice and the /api-docs UI; any new sensitive endpoint
- * must include this guard.
+ * Applied to every route in src/index.ts, including the /api-docs UI. This is
+ * internal tooling with no public consumers (neither giveth-v6-core nor the
+ * frontend call it), so there are no anonymous endpoints. Any new endpoint must
+ * include this guard.
  */
 export const adminExportAuth = (
   req: Request,
@@ -40,7 +41,7 @@ export const adminExportAuth = (
 
   const header = req.headers.authorization || ''
   const [scheme, encoded] = header.split(' ')
-  if (scheme !== 'Basic' || !encoded) {
+  if (!scheme || scheme.toLowerCase() !== 'basic' || !encoded) {
     return challenge(res, 'Authentication required')
   }
 
