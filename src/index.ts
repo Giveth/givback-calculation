@@ -42,7 +42,6 @@ import {
   getPurpleListExportRows,
   parsePurpleListCsv
 } from './purpleListExportService'
-import {adminExportAuth} from './adminAuth'
 
 import {getPurpleList} from './commonServices'
 import {get_dumpers_list} from "./subgraphService";
@@ -480,8 +479,7 @@ app.get('/givPrice', async (req: Request, res: Response) => {
   } catch (e: any) {
     console.log('/givPrice error', {
       error: e,
-      url: req.originalUrl,
-      query: req.query,
+      req,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -495,8 +493,7 @@ app.get('/purpleList', async (req: Request, res: Response) => {
   } catch (e: any) {
     console.log('/purpleList error', {
       error: e,
-      url: req.originalUrl,
-      query: req.query,
+      req,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -513,8 +510,7 @@ app.get('/givDumpers', async (req: Request, res: Response) => {
   } catch (e: any) {
     console.log('/givDumpers error', {
       error: e,
-      url: req.originalUrl,
-      query: req.query,
+      req,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -533,8 +529,7 @@ app.get('/token_distro_assign_histories', async (req: Request, res: Response) =>
   } catch (e: any) {
     console.log('/token_distro_assign_histories error', {
       error: e,
-      url: req.originalUrl,
-      query: req.query,
+      req,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -760,8 +755,7 @@ app.get(`/calculate-updated`,
     } catch (e: any) {
       console.log('/calculate-updated error', {
         error: e,
-        url: req.originalUrl,
-        query: req.query,
+        req,
       })
       res.status(400).send({
         message: e.message
@@ -774,7 +768,7 @@ app.get(`/calculate-updated`,
 // (GIV). Optional: givPrice (else computed at round end), minEligibleValueUsd,
 // givethCommunityProjectSlug, includeAllDonations=yes (eligible + ineligible),
 // download=yes (CSV). Returns the per-donation export + prize-pool summary.
-app.get(`/givbacks-round-report`, adminExportAuth, async (req: Request, res: Response) => {
+app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
   try {
     const {
       startDate, endDate, download, includeAllDonations,
@@ -848,7 +842,7 @@ app.get(`/givbacks-round-report`, adminExportAuth, async (req: Request, res: Res
 
 // Issue #323: export the current GIVbacks purple list (addresses excluded from
 // receiving GIVbacks) separately from the donation export.
-app.get(`/givbacks-purple-list`, adminExportAuth, async (req: Request, res: Response) => {
+app.get(`/givbacks-purple-list`, async (req: Request, res: Response) => {
   try {
     const { download } = req.query;
     const rows = await getPurpleListExportRows()
@@ -875,8 +869,7 @@ app.get(`/current-round`, async (req: Request, res: Response) => {
     } catch (e: any) {
       console.log('/current-round error', {
         error: e,
-        url: req.originalUrl,
-        query: req.query,
+        req,
       })
       res.status(400).send({errorMessage: e.message})
     }
