@@ -42,6 +42,7 @@ import {
   getPurpleListExportRows,
   parsePurpleListCsv
 } from './purpleListExportService'
+import {adminExportAuth} from './adminAuth'
 
 import {getPurpleList} from './commonServices'
 import {get_dumpers_list} from "./subgraphService";
@@ -92,9 +93,10 @@ const parseDonationCsv = (donations: FormattedDonation[]): string => {
 // https://stackoverflow.com/a/58052537/4650625
 // app.use(`${swaggerPrefix}/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.use(`/api-docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(`/api-docs`, adminExportAuth, swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get(`/calculate`,
+  adminExportAuth,
   async (req: Request, res: Response) => {
     try {
       console.log('start calculating')
@@ -368,25 +370,25 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
   }
 }
 
-app.get(`/eligible-donations`, async (req: Request, res: Response) => {
+app.get(`/eligible-donations`, adminExportAuth, async (req: Request, res: Response) => {
   await getEligibleAndNonEligibleDonations(req, res, true)
 })
-app.get(`/getAllProjectsSortByRank`, async (req: Request, res: Response) => {
+app.get(`/getAllProjectsSortByRank`, adminExportAuth, async (req: Request, res: Response) => {
   const result = await getAllProjectsSortByRank()
   res.send(result)
 })
 
 
-app.get(`/eligible-donations-for-nice-token`, async (req: Request, res: Response) => {
+app.get(`/eligible-donations-for-nice-token`, adminExportAuth, async (req: Request, res: Response) => {
   await getEligibleDonationsForNiceToken(req, res)
 })
 
-app.get(`/not-eligible-donations`, async (req: Request, res: Response) => {
+app.get(`/not-eligible-donations`, adminExportAuth, async (req: Request, res: Response) => {
   await getEligibleAndNonEligibleDonations(req, res, false)
 })
 
 
-app.get(`/purpleList-donations-to-verifiedProjects`, async (req: Request, res: Response) => {
+app.get(`/purpleList-donations-to-verifiedProjects`, adminExportAuth, async (req: Request, res: Response) => {
   try {
     const {endDate, startDate, download} = req.query;
     const givethIoDonations = await getVerifiedPurpleListDonations(startDate as string, endDate as string);
@@ -449,7 +451,7 @@ app.get(`/purpleList-donations-to-verifiedProjects`, async (req: Request, res: R
 //     }
 // })
 
-app.get('/givPrice', async (req: Request, res: Response) => {
+app.get('/givPrice', adminExportAuth, async (req: Request, res: Response) => {
   try {
     let {blockNumber, txHash, network = 'xdai'} = req.query;
     let realBlockNumber = Number(blockNumber)
@@ -479,26 +481,28 @@ app.get('/givPrice', async (req: Request, res: Response) => {
   } catch (e: any) {
     console.log('/givPrice error', {
       error: e,
-      req,
+      url: req.originalUrl,
+      query: req.query,
     })
     res.status(400).send({errorMessage: e.message})
   }
 })
 
 
-app.get('/purpleList', async (req: Request, res: Response) => {
+app.get('/purpleList', adminExportAuth, async (req: Request, res: Response) => {
   try {
 
     res.json({purpleList: await getPurpleList()})
   } catch (e: any) {
     console.log('/purpleList error', {
       error: e,
-      req,
+      url: req.originalUrl,
+      query: req.query,
     })
     res.status(400).send({errorMessage: e.message})
   }
 })
-app.get('/givDumpers', async (req: Request, res: Response) => {
+app.get('/givDumpers', adminExportAuth, async (req: Request, res: Response) => {
   try {
     res.json(
       await get_dumpers_list({
@@ -510,13 +514,14 @@ app.get('/givDumpers', async (req: Request, res: Response) => {
   } catch (e: any) {
     console.log('/givDumpers error', {
       error: e,
-      req,
+      url: req.originalUrl,
+      query: req.query,
     })
     res.status(400).send({errorMessage: e.message})
   }
 })
 
-app.get('/token_distro_assign_histories', async (req: Request, res: Response) => {
+app.get('/token_distro_assign_histories', adminExportAuth, async (req: Request, res: Response) => {
   try {
     const {tokenDistroAddress, uniPoolAddress, rpcUrl} = req.query;
     res.json(
@@ -529,7 +534,8 @@ app.get('/token_distro_assign_histories', async (req: Request, res: Response) =>
   } catch (e: any) {
     console.log('/token_distro_assign_histories error', {
       error: e,
-      req,
+      url: req.originalUrl,
+      query: req.query,
     })
     res.status(400).send({errorMessage: e.message})
   }
@@ -537,6 +543,7 @@ app.get('/token_distro_assign_histories', async (req: Request, res: Response) =>
 
 
 app.get(`/calculate-updated`,
+  adminExportAuth,
   async (req: Request, res: Response) => {
     try {
       console.log('start calculating')
@@ -755,7 +762,8 @@ app.get(`/calculate-updated`,
     } catch (e: any) {
       console.log('/calculate-updated error', {
         error: e,
-        req,
+        url: req.originalUrl,
+        query: req.query,
       })
       res.status(400).send({
         message: e.message
@@ -768,7 +776,7 @@ app.get(`/calculate-updated`,
 // (GIV). Optional: givPrice (else computed at round end), minEligibleValueUsd,
 // givethCommunityProjectSlug, includeAllDonations=yes (eligible + ineligible),
 // download=yes (CSV). Returns the per-donation export + prize-pool summary.
-app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
+app.get(`/givbacks-round-report`, adminExportAuth, async (req: Request, res: Response) => {
   try {
     const {
       startDate, endDate, download, includeAllDonations,
@@ -842,7 +850,7 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
 
 // Issue #323: export the current GIVbacks purple list (addresses excluded from
 // receiving GIVbacks) separately from the donation export.
-app.get(`/givbacks-purple-list`, async (req: Request, res: Response) => {
+app.get(`/givbacks-purple-list`, adminExportAuth, async (req: Request, res: Response) => {
   try {
     const { download } = req.query;
     const rows = await getPurpleListExportRows()
@@ -862,14 +870,15 @@ app.get(`/givbacks-purple-list`, async (req: Request, res: Response) => {
   }
 })
 
-app.get(`/current-round`, async (req: Request, res: Response) => {
+app.get(`/current-round`, adminExportAuth, async (req: Request, res: Response) => {
     try {
       const result = await getCurrentGIVbacksRound()
       res.send(result)
     } catch (e: any) {
       console.log('/current-round error', {
         error: e,
-        req,
+        url: req.originalUrl,
+        query: req.query,
       })
       res.status(400).send({errorMessage: e.message})
     }
