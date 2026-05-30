@@ -787,11 +787,20 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
     const minEligibleValueUsd = Number(req.query.minEligibleValueUsd) || 0
     const includeIneligible = includeAllDonations === 'yes'
 
+    // Strict UTC parsing so the round window and price-block lookup are
+    // deterministic regardless of server timezone (issue #323).
+    const dateFormat = 'YYYY/MM/DD-HH:mm:ss'
+    const startMoment = moment.utc(startDate as string, dateFormat, true)
+    const endMoment = moment.utc(endDate as string, dateFormat, true)
+    if (!startMoment.isValid() || !endMoment.isValid()) {
+      throw new Error(`startDate and endDate must be UTC ${dateFormat}`)
+    }
+
     // GIV price at the end of the round (issue #323). An explicit override may be
     // passed for reproducing historical numbers without on-chain lookups.
     let givPrice = Number(req.query.givPrice)
     if (!Number.isFinite(givPrice) || givPrice <= 0) {
-      const endDateTimestamp = moment(endDate as string, 'YYYY/MM/DD-HH:mm:ss').unix()
+      const endDateTimestamp = endMoment.unix()
       const priceBlock = await getBlockByTimestamp(endDateTimestamp, 1)
       const givPriceInETH = await getEthGivPriceInMainnet(priceBlock)
       const ethPrice = await getEthPriceTimeStamp(endDateTimestamp)
@@ -822,7 +831,9 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
     if (download === 'yes') {
       const csv = parseRoundDonationsCsv(report.donations)
       const scope = includeIneligible ? 'all' : 'eligible'
-      const fileName = `givbacks-round-donations-${scope}-${startDate}-${endDate}.csv`
+      const safeStart = (startDate as string).replace(/[/:]/g, '-')
+      const safeEnd = (endDate as string).replace(/[/:]/g, '-')
+      const fileName = `givbacks-round-donations-${scope}-${safeStart}-${safeEnd}.csv`
       res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
       res.setHeader('Content-type', 'text/csv')
       res.send(csv)
@@ -849,7 +860,8 @@ app.get(`/givbacks-purple-list`, async (req: Request, res: Response) => {
 
     if (download === 'yes') {
       const csv = parsePurpleListCsv(rows)
-      const fileName = `givbacks-purple-list-${new Date().toISOString()}.csv`
+      const safeTimestamp = new Date().toISOString().replace(/[/:]/g, '-')
+      const fileName = `givbacks-purple-list-${safeTimestamp}.csv`
       res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
       res.setHeader('Content-type', 'text/csv')
       res.send(csv)
