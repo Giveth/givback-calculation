@@ -78,8 +78,8 @@ check('same hash on different networks is not a duplicate', () => {
 // Recurring donations dedupe by parent recurring id (one row per recurring stream).
 check('dedupes recurring donations by parentRecurringDonationId', () => {
   const merged = mergeAndDedupeDonations(
-    [donation({ txHash: 'recurring-7', parentRecurringDonationId: '7' })],
-    [donation({ txHash: 'recurring-7', parentRecurringDonationId: '7' })],
+    [donation({ txHash: 'recurring-7-a', parentRecurringDonationId: '7' })],
+    [donation({ txHash: 'recurring-7-b', parentRecurringDonationId: '7' })],
   )
   assert.strictEqual(merged.length, 1)
 })

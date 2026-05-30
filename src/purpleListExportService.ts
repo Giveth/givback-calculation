@@ -14,7 +14,9 @@ const givethV6CoreApiTimeoutMs = Number(
 const PURPLE_LIST_CSV_FIELDS = ['address', 'network', 'source', 'projectLink']
 
 const dedupeKey = (row: PurpleListExportRow): string =>
-  `${(row.address || '').trim().toLowerCase()}:${row.network ?? ''}`
+  `${(row.address || '').trim().toLowerCase()}:${String(row.network ?? '')
+    .trim()
+    .toLowerCase()}`
 
 /**
  * Fetches the current GIVbacks purple list from v6 Core (which already merges v5

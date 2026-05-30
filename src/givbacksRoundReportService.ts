@@ -68,6 +68,9 @@ export const buildGivbacksRoundReport = (params: {
   if (!Number.isFinite(givPrice) || givPrice <= 0) {
     throw new Error('Invalid GIV price for round report')
   }
+  if (!Number.isFinite(maxPrizePool) || maxPrizePool <= 0) {
+    throw new Error('Invalid max prize pool for round report')
+  }
 
   const ticketsByDonor = new Map<string, number>()
   let calculatedPrizePool = 0
