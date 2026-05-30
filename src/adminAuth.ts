@@ -3,8 +3,8 @@ import { timingSafeEqual } from 'crypto'
 
 // Read at call time (not module load) so the value is correct regardless of
 // when dotenv runs, and so the guard is unit-testable.
-const getAdminCredentials = (): { username: string; password?: string } => ({
-  username: process.env.ADMIN_EXPORT_USERNAME || 'admin',
+const getAdminCredentials = (): { username?: string; password?: string } => ({
+  username: process.env.ADMIN_EXPORT_USERNAME,
   password: process.env.ADMIN_EXPORT_PASSWORD,
 })
 
@@ -25,8 +25,8 @@ const challenge = (res: Response, message: string) => {
 /**
  * HTTP Basic Auth guard for the GIVbacks admin/reporting endpoints.
  * Many of these expose donor names/emails or operationally sensitive data, so
- * they must not be public. Fails closed when ADMIN_EXPORT_PASSWORD is not
- * configured.
+ * they must not be public. Fails closed when ADMIN_EXPORT_USERNAME or
+ * ADMIN_EXPORT_PASSWORD is not configured.
  *
  * Applied to every route in src/index.ts, including the /api-docs UI. This is
  * internal tooling with no public consumers (neither giveth-v6-core nor the
@@ -39,8 +39,8 @@ export const adminExportAuth = (
   next: NextFunction,
 ) => {
   const credentials = getAdminCredentials()
-  if (!credentials.password) {
-    console.log('ADMIN_EXPORT_PASSWORD is not set; refusing admin export request')
+  if (!credentials.username || !credentials.password) {
+    console.log('ADMIN_EXPORT_USERNAME or ADMIN_EXPORT_PASSWORD is not set; refusing admin export request')
     return challenge(res, 'Admin export auth is not configured')
   }
 
