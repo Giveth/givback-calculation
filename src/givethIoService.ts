@@ -73,6 +73,8 @@ const toGivethIoQueryDate = (apiDate: string, fieldName: string): string => {
 
 // "Master" donor name = the donor's full profile name. v5 has no dedicated
 // column, so we compose first + last name and fall back to the display name.
+// Each part is trimmed before joining so unsanitized inputs (e.g.
+// `firstName: '  John  '`) don't bleed stray whitespace into the export.
 const composeDonorMasterName = (user?: {
   name?: string,
   firstName?: string,
@@ -82,10 +84,10 @@ const composeDonorMasterName = (user?: {
     return undefined
   }
   const fullName = [user.firstName, user.lastName]
-    .filter(part => typeof part === 'string' && part.trim().length > 0)
+    .map(part => (typeof part === 'string' ? part.trim() : ''))
+    .filter(part => part.length > 0)
     .join(' ')
-    .trim()
-  return fullName || user.name || undefined
+  return fullName || user.name?.trim() || undefined
 }
 
 // Formats a donation to a GIVbacks-eligible (verified) project. Shared between
@@ -214,30 +216,52 @@ export const getGivbacksRoundDonations = async (
   },
   includeIneligible: boolean,
 ): Promise<FormattedDonation[]> => {
-  const eligibleDonations = (await getEligibleDonations({
+  // Single v6 Core fetch. Splitting buckets locally avoids two HTTP calls
+  // and the eligibility drift that could otherwise occur if a donation
+  // completed between calls (issue #323; previously called v6 once for
+  // eligible + once for all).
+  const v5EligibleP = getEligibleDonations({
     ...params,
     eligible: true,
     enforceTokenEligibility: true,
-  }))
+    skipV6Fetch: true,
+  })
+  const v6DonationsP = getV6EligibleDonations({
+    ...params,
+    includeIneligible,
+  })
+
+  const v5IneligibleP = includeIneligible
+    ? getEligibleDonations({
+        ...params,
+        eligible: false,
+        includeBelowMinDonations: true,
+        enforceTokenEligibility: true,
+      })
+    : Promise.resolve<FormattedDonation[]>([])
+
+  const [v5Eligible, v6Donations, v5Ineligible] = await Promise.all([
+    v5EligibleP,
+    v6DonationsP,
+    v5IneligibleP,
+  ])
+
+  const v6Eligible = v6Donations.filter(
+    donation => donation.isDonationGivbacksEligible !== false,
+  )
+  const eligibleDonations = mergeAndDedupeDonations(v5Eligible, v6Eligible)
     .map(donation => ({ ...donation, isDonationGivbacksEligible: true }))
 
   if (!includeIneligible) {
     return eligibleDonations
   }
 
-  const [v5IneligibleDonations, v6AllDonations] = await Promise.all([
-    getEligibleDonations({
-      ...params,
-      eligible: false,
-      includeBelowMinDonations: true,
-      enforceTokenEligibility: true,
-    }),
-    getV6EligibleDonations({ ...params, includeIneligible: true }),
-  ])
-
+  const v6Ineligible = v6Donations.filter(
+    donation => donation.isDonationGivbacksEligible === false,
+  )
   const ineligibleDonations = [
-    ...v5IneligibleDonations,
-    ...v6AllDonations.filter(donation => donation.isDonationGivbacksEligible === false),
+    ...v5Ineligible,
+    ...v6Ineligible,
   ].map(donation => ({ ...donation, isDonationGivbacksEligible: false }))
 
   // Eligible rows are passed first so they win on any tx/recurring key collision
@@ -357,6 +381,11 @@ export const getEligibleDonations = async (
     justCountListed?: boolean,
     includeBelowMinDonations?: boolean,
     enforceTokenEligibility?: boolean,
+    // When true, skip the v6 Core fetch and return v5-only data. Set by the
+    // round-export orchestrator (issue #323) which fetches v6 itself ONCE
+    // and merges the buckets locally — avoids two HTTP round-trips against
+    // v6 Core and the eligible/ineligible drift that can occur between them.
+    skipV6Fetch?: boolean,
   }): Promise<FormattedDonation[]> => {
   try {
     const {
@@ -370,16 +399,19 @@ export const getEligibleDonations = async (
       givethCommunityProjectSlug,
       includeBelowMinDonations,
       enforceTokenEligibility,
+      skipV6Fetch,
     } = params
     const eligible = params.eligible === undefined ? true : params.eligible
+    // Strict UTC parsing so the donation window matches the round-end price
+    // block regardless of server timezone (issue #323).
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
-    const firstDate = moment(beginDate, timeFormat);
-    if (String(firstDate) === 'Invalid date') {
+    const firstDate = moment.utc(beginDate, timeFormat, true);
+    if (!firstDate.isValid()) {
       throw new Error('Invalid startDate')
     }
-    const secondDate = moment(endDate, timeFormat);
+    const secondDate = moment.utc(endDate, timeFormat, true);
 
-    if (String(secondDate) === 'Invalid date') {
+    if (!secondDate.isValid()) {
       throw new Error('Invalid endDate')
     }
 
@@ -632,6 +664,11 @@ export const getEligibleDonations = async (
     })
     if (!eligible) {
       return notEligibleDonations
+    }
+
+    // Caller (e.g. round export) is fetching v6 itself; return v5-only.
+    if (skipV6Fetch) {
+      return eligibleDonations
     }
 
     const v6EligibleDonations = await getV6EligibleDonations({
