@@ -101,6 +101,33 @@ check('calls next() on correct credentials', () => {
   assert.strictEqual(nexted, true)
 })
 
+// RFC 7617 compliance + edge-case hardening.
+
+check('401 on an empty password (basic admin:)', () => {
+  const { res, nexted } = run(basic('admin', ''))
+  assert.strictEqual(res.statusCode, 401)
+  assert.strictEqual(nexted, false)
+})
+
+check('401 on a payload with no colon (just a base64 username)', () => {
+  const encoded = Buffer.from('admin').toString('base64')
+  const { res, nexted } = run('Basic ' + encoded)
+  assert.strictEqual(res.statusCode, 401)
+  assert.strictEqual(nexted, false)
+})
+
+check('accepts case-insensitive Basic scheme (bAsIc) — RFC 7617', () => {
+  const encoded = Buffer.from('admin:s3cret').toString('base64')
+  const { nexted } = run('bAsIc ' + encoded)
+  assert.strictEqual(nexted, true)
+})
+
+check('401 on a longer-than-expected supplied password (no exception)', () => {
+  const { res, nexted } = run(basic('admin', 's3cretXXXXXXXX'))
+  assert.strictEqual(res.statusCode, 401)
+  assert.strictEqual(nexted, false)
+})
+
 console.log(`\nadminAuth.test.ts: ${passed} passed, ${failed} failed`)
 if (failed > 0) {
   process.exit(1)

@@ -55,8 +55,11 @@ export const adminExportAuth = (
   const username = separatorIndex === -1 ? decoded : decoded.slice(0, separatorIndex)
   const password = separatorIndex === -1 ? '' : decoded.slice(separatorIndex + 1)
 
+  // Use secretsMatch for the username too — keeps both compares
+  // constant-time (and length-safe) for symmetry. The username is not really
+  // a secret, but the same code path now treats both fields identically.
   if (
-    username === credentials.username &&
+    secretsMatch(username, credentials.username) &&
     secretsMatch(password, credentials.password)
   ) {
     return next()
