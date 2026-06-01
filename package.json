@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:unit": "for f in test/*.test.ts; do ts-node --project ./tsconfig.json \"$f\" || exit 1; done",
     "startOld": "nodemon src/index.js",
     "build": "tsc --project ./",
     "start": " ts-node-dev --project ./tsconfig.json --respawn ./src/index.ts"

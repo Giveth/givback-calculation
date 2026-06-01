@@ -59,6 +59,84 @@ const donationGiverAddress = (donation: GivethIoDonation): string => {
   return isStellarDonationAndUserLoggedInWithEvmAddress(donation) ? donation.user.walletAddress : donation.fromWalletAddress
 }
 
+// Converts an API date (YYYY/MM/DD-HH:mm:ss) into the giveth.io GraphQL literal
+// (YYYYMMDD HH:mm:ss). The result is interpolated directly into the GraphQL
+// query string, so anything that isn't exactly digits/space/colons is rejected
+// to prevent GraphQL injection through the date params.
+const toGivethIoQueryDate = (apiDate: string, fieldName: string): string => {
+  const queryDate = String(apiDate || '').split('/').join('').replace('-', ' ')
+  if (!/^\d{8} \d{2}:\d{2}:\d{2}$/.test(queryDate)) {
+    throw new Error(`Invalid ${fieldName}`)
+  }
+  return queryDate
+}
+
+// "Master" donor name = the donor's full profile name. v5 has no dedicated
+// column, so we compose first + last name and fall back to the display name.
+// Each part is trimmed before joining so unsanitized inputs (e.g.
+// `firstName: '  John  '`) don't bleed stray whitespace into the export.
+const composeDonorMasterName = (user?: {
+  name?: string,
+  firstName?: string,
+  lastName?: string
+}): string | undefined => {
+  if (!user) {
+    return undefined
+  }
+  const fullName = [user.firstName, user.lastName]
+    .map(part => (typeof part === 'string' ? part.trim() : ''))
+    .filter(part => part.length > 0)
+    .join(' ')
+  return fullName || user.name?.trim() || undefined
+}
+
+// Formats a donation to a GIVbacks-eligible (verified) project. Shared between
+// the eligible list and the below-minimum ineligible list (issue #323) so both
+// paths produce identical row shapes.
+const formatVerifiedProjectDonation = (item: GivethIoDonation) => {
+  // Old donations dont have givbackFactor, so I use 0.5 for them
+  const givbackFactor = item.givbackFactor || 0.75;
+
+  // Use origin transaction data for swap donations (squid router)
+  const isSwapDonation = !!item.swapTransaction;
+  const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
+  const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
+  const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
+  const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
+
+  return {
+    amount,
+    currency,
+    createdAt: moment(item.createdAt).format('YYYY-MM-DD-HH:mm:ss'),
+    valueUsd: item.valueUsd,
+    anonymous: item.anonymous,
+    bottomRankInRound: item.bottomRankInRound,
+    givbacksRound: item.powerRound,
+    projectRank: item.projectRank,
+    givbackFactor,
+    valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
+      usdValue: item.valueUsd,
+      givFactor: item.givbackFactor
+    }),
+    giverAddress: donationGiverAddress(item),
+    txHash,
+    network: getNetworkNameById(networkId),
+    source: 'giveth.io',
+    giverName: item && item.user && item.user.name,
+    giverEmail: item && item.user && item.user.email,
+    donorMasterName: composeDonorMasterName(item.user),
+    projectLink: `https://giveth.io/project/${item.project.slug}`,
+    isProjectGivbacksEligible: item.isProjectGivbackEligible,
+
+    isReferrerGivbackEligible: item.isReferrerGivbackEligible,
+    referrerWallet: item.referrerWallet,
+
+    numberOfStreamedDonations: item.numberOfStreamedDonations,
+    parentRecurringDonationId: item?.recurringDonation?.id,
+    parentRecurringDonationTxHash: item?.recurringDonation?.txHash
+  }
+}
+
 const getV6EligibleDonations = async (
   params: {
     beginDate: string,
@@ -67,6 +145,7 @@ const getV6EligibleDonations = async (
     givethCommunityProjectSlug: string,
     niceWhitelistTokens?: string[],
     niceProjectSlugs?: string[],
+    includeIneligible?: boolean,
   }): Promise<FormattedDonation[]> => {
   if (!givethV6CoreApiUrl || !givethV6CoreApiPassword) {
     console.log('Skipping v6 Core donations: missing GIVETH_V6_CORE_API_URL or POWER_SYNC_PASSWORD')
@@ -92,14 +171,17 @@ const getV6EligibleDonations = async (
           ...(params.niceProjectSlugs?.length
             ? { niceProjectSlugs: params.niceProjectSlugs.join(',') }
             : {}),
+          ...(params.includeIneligible ? { includeIneligible: 'true' } : {}),
         },
         timeout: givethV6CoreApiTimeoutMs,
       },
     )
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.log('Skipping v6 Core donations: request failed', message)
-    return []
+    // v6 Core is configured but unreachable. Throw instead of returning [] so the
+    // GIVbacks calculations/exports never silently undercount on a v5-only
+    // dataset; callers surface this as an error and the run can be retried.
+    throw new Error(`Failed to fetch v6 Core donations: ${message}`)
   }
 
   const rows = response?.data?.data
@@ -111,9 +193,80 @@ const getV6EligibleDonations = async (
     ...row,
     giverName: row.giverName || '',
     giverEmail: row.giverEmail || '',
+    // v6 Core reports its own eligibility; default to true for back-compat with
+    // the existing eligible-only feed where the flag is omitted.
+    isDonationGivbacksEligible: row.isDonationGivbacksEligible !== false,
     isReferrerGivbackEligible: Boolean(row.isReferrerGivbackEligible),
     referrerWallet: row.referrerWallet || undefined,
   }))
+}
+
+/**
+ * GIVbacks round export (issue #323) data source: returns every donation in the
+ * window from BOTH v5 (giveth.io) and v6 Core, each tagged with
+ * `isDonationGivbacksEligible`. When `includeIneligible` is false only eligible
+ * donations are returned (same set the existing calculator uses).
+ */
+export const getGivbacksRoundDonations = async (
+  params: {
+    beginDate: string,
+    endDate: string,
+    minEligibleValueUsd: number,
+    givethCommunityProjectSlug: string,
+  },
+  includeIneligible: boolean,
+): Promise<FormattedDonation[]> => {
+  // Single v6 Core fetch. Splitting buckets locally avoids two HTTP calls
+  // and the eligibility drift that could otherwise occur if a donation
+  // completed between calls (issue #323; previously called v6 once for
+  // eligible + once for all).
+  const v5EligibleP = getEligibleDonations({
+    ...params,
+    eligible: true,
+    enforceTokenEligibility: true,
+    skipV6Fetch: true,
+  })
+  const v6DonationsP = getV6EligibleDonations({
+    ...params,
+    includeIneligible,
+  })
+
+  const v5IneligibleP = includeIneligible
+    ? getEligibleDonations({
+        ...params,
+        eligible: false,
+        includeBelowMinDonations: true,
+        enforceTokenEligibility: true,
+      })
+    : Promise.resolve<FormattedDonation[]>([])
+
+  const [v5Eligible, v6Donations, v5Ineligible] = await Promise.all([
+    v5EligibleP,
+    v6DonationsP,
+    v5IneligibleP,
+  ])
+
+  const v6Eligible = v6Donations.filter(
+    donation => donation.isDonationGivbacksEligible !== false,
+  )
+  const eligibleDonations = mergeAndDedupeDonations(v5Eligible, v6Eligible)
+    .map(donation => ({ ...donation, isDonationGivbacksEligible: true }))
+
+  if (!includeIneligible) {
+    return eligibleDonations
+  }
+
+  const v6Ineligible = v6Donations.filter(
+    donation => donation.isDonationGivbacksEligible === false,
+  )
+  const ineligibleDonations = [
+    ...v5Ineligible,
+    ...v6Ineligible,
+  ].map(donation => ({ ...donation, isDonationGivbacksEligible: false }))
+
+  // Eligible rows are passed first so they win on any tx/recurring key collision
+  // (a donation must never appear as both eligible and ineligible).
+  return mergeAndDedupeDonations(eligibleDonations, ineligibleDonations)
 }
 
 const normalizeDedupeValue = (value?: string | number): string => {
@@ -154,7 +307,7 @@ const preserveParentRecurringDonationTxHash = (
   }
 }
 
-const mergeAndDedupeDonations = (
+export const mergeAndDedupeDonations = (
   donations: FormattedDonation[],
   additionalDonations: FormattedDonation[],
 ): FormattedDonation[] => {
@@ -226,6 +379,13 @@ export const getEligibleDonations = async (
     niceProjectSlugs?: string[],
     eligible?: boolean,
     justCountListed?: boolean,
+    includeBelowMinDonations?: boolean,
+    enforceTokenEligibility?: boolean,
+    // When true, skip the v6 Core fetch and return v5-only data. Set by the
+    // round-export orchestrator (issue #323) which fetches v6 itself ONCE
+    // and merges the buckets locally — avoids two HTTP round-trips against
+    // v6 Core and the eligible/ineligible drift that can occur between them.
+    skipV6Fetch?: boolean,
   }): Promise<FormattedDonation[]> => {
   try {
     const {
@@ -236,23 +396,28 @@ export const getEligibleDonations = async (
       // disablePurpleList,
       justCountListed,
       minEligibleValueUsd,
-      givethCommunityProjectSlug
+      givethCommunityProjectSlug,
+      includeBelowMinDonations,
+      enforceTokenEligibility,
+      skipV6Fetch,
     } = params
     const eligible = params.eligible === undefined ? true : params.eligible
+    // Strict UTC parsing so the donation window matches the round-end price
+    // block regardless of server timezone (issue #323).
     const timeFormat = 'YYYY/MM/DD-HH:mm:ss';
-    const firstDate = moment(beginDate, timeFormat);
-    if (String(firstDate) === 'Invalid date') {
+    const firstDate = moment.utc(beginDate, timeFormat, true);
+    if (!firstDate.isValid()) {
       throw new Error('Invalid startDate')
     }
-    const secondDate = moment(endDate, timeFormat);
+    const secondDate = moment.utc(endDate, timeFormat, true);
 
-    if (String(secondDate) === 'Invalid date') {
+    if (!secondDate.isValid()) {
       throw new Error('Invalid endDate')
     }
 
     // givethio get time in this format YYYYMMDD HH:m:ss
-    const fromDate = beginDate.split('/').join('').replace('-', ' ')
-    const toDate = endDate.split('/').join('').replace('-', ' ')
+    const fromDate = toGivethIoQueryDate(beginDate, 'startDate')
+    const toDate = toGivethIoQueryDate(endDate, 'endDate')
     const query = gql`
         {
           donations(
@@ -269,6 +434,7 @@ export const getEligibleDonations = async (
             chainType
             anonymous
             isProjectGivbackEligible
+            isTokenEligibleForGivback
             projectRank
             powerRound
             bottomRankInRound
@@ -301,6 +467,8 @@ export const getEligibleDonations = async (
             }
             user {
               name
+              firstName
+              lastName
               email
               walletAddress
             }
@@ -325,6 +493,10 @@ export const getEligibleDonations = async (
           })
           && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
           && donation.isProjectGivbackEligible
+          // Token GIVbacks eligibility (issue #323 AC #6). Opt-in so existing
+          // calculator endpoints keep their current behavior; only the round
+          // export enables it, matching the v6 Core rule.
+          && (!enforceTokenEligibility || donation.isTokenEligibleForGivback)
           && donation.status === 'verified'
       )
 
@@ -379,47 +551,9 @@ export const getEligibleDonations = async (
             donation.project.listed
         )
     }
-    const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(item => {
-      // Old donations dont have givbackFactor, so I use 0.5 for them
-      const givbackFactor = item.givbackFactor || 0.75;
-
-      // Use origin transaction data for swap donations (squid router)
-      const isSwapDonation = !!item.swapTransaction;
-      const txHash = isSwapDonation ? item.swapTransaction!.firstTxHash : item.transactionId;
-      const amount = isSwapDonation ? String(item.swapTransaction!.fromAmount) : item.amount;
-      const currency = isSwapDonation ? item.swapTransaction!.fromTokenSymbol : item.currency;
-      const networkId = isSwapDonation ? item.swapTransaction!.fromChainId : item.transactionNetworkId;
-
-      return {
-        amount,
-        currency,
-        createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
-        valueUsd: item.valueUsd,
-        anonymous: item.anonymous,
-        bottomRankInRound: item.bottomRankInRound,
-        givbacksRound: item.powerRound,
-        projectRank: item.projectRank,
-        givbackFactor,
-        valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
-          usdValue: item.valueUsd,
-          givFactor: item.givbackFactor
-        }),
-        giverAddress: donationGiverAddress(item),
-        txHash,
-        network: getNetworkNameById(networkId),
-        source: 'giveth.io',
-        giverName: item && item.user && item.user.name,
-        giverEmail: item && item.user && item.user.email,
-        projectLink: `https://giveth.io/project/${item.project.slug}`,
-
-        isReferrerGivbackEligible: item.isReferrerGivbackEligible,
-        referrerWallet: item.referrerWallet,
-
-        numberOfStreamedDonations: item.numberOfStreamedDonations,
-        parentRecurringDonationId: item?.recurringDonation?.id,
-        parentRecurringDonationTxHash: item?.recurringDonation?.txHash
-      }
-    });
+    const formattedDonationsToVerifiedProjects = donationsToVerifiedProjects.map(
+      formatVerifiedProjectDonation,
+    );
 
     const formattedDonationsToNotVerifiedProjects: FormattedDonation[] = donationsToNotVerifiedProjects.map(item => {
       const givbackFactor = item.givbackFactor || 0.5;
@@ -435,7 +569,7 @@ export const getEligibleDonations = async (
         amount,
         anonymous: item.anonymous,
         currency,
-        createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+        createdAt: moment(item.createdAt).format('YYYY-MM-DD-HH:mm:ss'),
         valueUsd: item.valueUsd,
         valueUsdAfterGivbackFactor: donationValueAfterGivFactor({
           usdValue: item.valueUsd,
@@ -451,7 +585,9 @@ export const getEligibleDonations = async (
         source: 'giveth.io',
         giverName: item && item.user && item.user.name,
         giverEmail: item && item.user && item.user.email,
+        donorMasterName: composeDonorMasterName(item.user),
         projectLink: `https://giveth.io/project/${item.project.slug}`,
+        isProjectGivbacksEligible: item.isProjectGivbackEligible,
 
         isReferrerGivbackEligible: item.isReferrerGivbackEligible,
         referrerWallet: item.referrerWallet,
@@ -460,10 +596,55 @@ export const getEligibleDonations = async (
         parentRecurringDonationTxHash: item?.recurringDonation?.txHash
       }
     });
+    // Donations to GIVbacks-eligible projects that pass the base checks but fail
+    // donation-level eligibility (below the minimum USD threshold, or — when
+    // enforced — a non-eligible token). They are genuinely ineligible, but the
+    // verified filter above drops them, so the default "all donations" export
+    // would miss them. Included only when explicitly requested (issue #323 audit
+    // mode) so existing eligible/not-eligible endpoints are unaffected.
+    let ineligibleVerifiedProjectDonations: FormattedDonation[] = []
+    if (includeBelowMinDonations) {
+      let extras = rawDonationsFilterByChain.filter(
+        (donation: GivethIoDonation) =>
+          moment(donation.createdAt) < secondDate
+          && moment(donation.createdAt) > firstDate
+          && donation.valueUsd
+          && (donation.chainType == 'EVM' || isStellarDonationAndUserLoggedInWithEvmAddress(donation))
+          && donation.isProjectGivbackEligible
+          && donation.status === 'verified'
+          // Not eligible at the donation level: fails the amount minimum, or
+          // (when enforced) the token is not GIVbacks-eligible.
+          && !(
+            isDonationAmountValid({
+              donation,
+              minEligibleValueUsd,
+              givethCommunityProjectSlug,
+            })
+            && (!enforceTokenEligibility || donation.isTokenEligibleForGivback)
+          ),
+      )
+      if (niceWhitelistTokens) {
+        extras = extras.filter(donation =>
+          niceWhitelistTokens.includes(donation.currency),
+        )
+      }
+      if (niceProjectSlugs) {
+        extras = extras.filter(donation =>
+          niceProjectSlugs.includes(donation.project.slug),
+        )
+      }
+      if (justCountListed) {
+        extras = extras.filter(donation => donation.project.listed)
+      }
+      ineligibleVerifiedProjectDonations = extras.map(
+        formatVerifiedProjectDonation,
+      )
+    }
+
     const eligibleDonations = await filterDonationsWithPurpleList(formattedDonationsToVerifiedProjects)
     const notEligibleDonations = (
       await purpleListDonations(formattedDonationsToVerifiedProjects)
-    ).concat(formattedDonationsToNotVerifiedProjects)
+    ).concat(formattedDonationsToNotVerifiedProjects, ineligibleVerifiedProjectDonations)
     const eligibleDonationKeys = new Set(
       eligibleDonations.flatMap(donation => donationDedupeIdentifiers(donation)),
     )
@@ -483,6 +664,11 @@ export const getEligibleDonations = async (
     })
     if (!eligible) {
       return notEligibleDonations
+    }
+
+    // Caller (e.g. round export) is fetching v6 itself; return v5-only.
+    if (skipV6Fetch) {
+      return eligibleDonations
     }
 
     const v6EligibleDonations = await getV6EligibleDonations({
@@ -519,8 +705,8 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
       throw new Error('Invalid endDate')
     }
     // givethio get time in this format YYYYMMDD HH:m:ss
-    const fromDate = beginDate.split('/').join('').replace('-', ' ')
-    const toDate = endDate.split('/').join('').replace('-', ' ')
+    const fromDate = toGivethIoQueryDate(beginDate, 'startDate')
+    const toDate = toGivethIoQueryDate(endDate, 'endDate')
     const query = gql`
         {
           donations(
@@ -587,7 +773,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
       return {
         amount,
         currency,
-        createdAt: moment(item.createdAt).format('YYYY-MM-DD-hh:mm:ss'),
+        createdAt: moment(item.createdAt).format('YYYY-MM-DD-HH:mm:ss'),
         valueUsd: item.valueUsd,
         givbackFactor: item.givbackFactor,
         giverAddress: donationGiverAddress(item),
