@@ -246,10 +246,19 @@ export const getGivbacksRoundDonations = async (
     v5IneligibleP,
   ])
 
+  // v6 Core is the source of truth for donations made via the v6 stack. The
+  // legacy data-sync cron mirrors most v6 donations back into v5 (impact-graph)
+  // for backward compatibility, so a single donation typically appears in BOTH
+  // sources. We pass v6 FIRST to mergeAndDedupeDonations so the v6 row wins
+  // on a collision — that way the export's `source` column honestly reflects
+  // where the donation originated, instead of always showing 'giveth.io'
+  // because v5 happens to be loaded earlier. Scoped to /givbacks-round-report
+  // only; the legacy /calculate-updated path keeps the v5-first behavior its
+  // consumers already expect.
   const v6Eligible = v6Donations.filter(
     donation => donation.isDonationGivbacksEligible !== false,
   )
-  const eligibleDonations = mergeAndDedupeDonations(v5Eligible, v6Eligible)
+  const eligibleDonations = mergeAndDedupeDonations(v6Eligible, v5Eligible)
     .map(donation => ({ ...donation, isDonationGivbacksEligible: true }))
 
   if (!includeIneligible) {
@@ -259,9 +268,10 @@ export const getGivbacksRoundDonations = async (
   const v6Ineligible = v6Donations.filter(
     donation => donation.isDonationGivbacksEligible === false,
   )
+  // Same v6-first ordering for the ineligible bucket.
   const ineligibleDonations = [
-    ...v5Ineligible,
     ...v6Ineligible,
+    ...v5Ineligible,
   ].map(donation => ({ ...donation, isDonationGivbacksEligible: false }))
 
   // Eligible rows are passed first so they win on any tx/recurring key collision
