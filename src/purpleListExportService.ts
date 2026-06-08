@@ -3,13 +3,17 @@ import { PurpleListExportRow } from './types/general'
 const axios = require('axios')
 const { parse } = require('json2csv')
 
-const givethV6CoreApiUrl = process.env.GIVETH_V6_CORE_API_URL
-const givethV6CoreApiPassword = process.env.POWER_SYNC_PASSWORD
-const givethV6CoreApiPasswordHeader =
-  process.env.POWER_SYNC_PASSWORD_HEADER || 'x-power-sync-password'
-const givethV6CoreApiTimeoutMs = Number(
-  process.env.GIVETH_V6_CORE_API_TIMEOUT_MS || 15000,
-)
+// Read env at call time so tests (and operators tweaking .env without a
+// restart) see the current values. Reading at module load broke a test that
+// tried to delete GIVETH_V6_CORE_API_URL after import — the const stayed
+// pinned to whatever was set when the file first loaded.
+const getV6CoreConfig = () => ({
+  url: process.env.GIVETH_V6_CORE_API_URL,
+  password: process.env.POWER_SYNC_PASSWORD,
+  passwordHeader:
+    process.env.POWER_SYNC_PASSWORD_HEADER || 'x-power-sync-password',
+  timeoutMs: Number(process.env.GIVETH_V6_CORE_API_TIMEOUT_MS || 15000),
+})
 
 const PURPLE_LIST_CSV_FIELDS = ['address', 'network', 'source', 'projectLink']
 
@@ -24,19 +28,20 @@ const dedupeKey = (row: PurpleListExportRow): string =>
  * deduplicates it case-insensitively on (address, network). Issue #323.
  */
 export const getPurpleListExportRows = async (): Promise<PurpleListExportRow[]> => {
-  if (!givethV6CoreApiUrl || !givethV6CoreApiPassword) {
+  const cfg = getV6CoreConfig()
+  if (!cfg.url || !cfg.password) {
     throw new Error(
       'Cannot export purple list: missing GIVETH_V6_CORE_API_URL or POWER_SYNC_PASSWORD',
     )
   }
 
   const response = await axios.get(
-    `${givethV6CoreApiUrl.replace(/\/$/, '')}/api/internal/givbacks/purple-list`,
+    `${cfg.url.replace(/\/$/, '')}/api/internal/givbacks/purple-list`,
     {
       headers: {
-        [givethV6CoreApiPasswordHeader]: givethV6CoreApiPassword,
+        [cfg.passwordHeader]: cfg.password,
       },
-      timeout: givethV6CoreApiTimeoutMs,
+      timeout: cfg.timeoutMs,
     },
   )
 
