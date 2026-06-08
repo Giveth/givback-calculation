@@ -23,6 +23,7 @@ import {
   filterDonationsWithPurpleList, groupDonationsByParentRecurringId,
   purpleListDonations
 } from './commonServices';
+import { getPurpleListAddressSet } from './purpleListExportService';
 import {
   calculateReferralReward,
   calculateReferralRewardFromRemainingAmount,
@@ -240,11 +241,40 @@ export const getGivbacksRoundDonations = async (
       })
     : Promise.resolve<FormattedDonation[]>([])
 
-  const [v5Eligible, v6Donations, v5Ineligible] = await Promise.all([
-    v5EligibleP,
-    v6DonationsP,
-    v5IneligibleP,
-  ])
+  // Issue #323: v5's filterDonationsWithPurpleList only knows about
+  // impact-graph's purple list. A donor added directly to v6 Core's purple
+  // list (via project address or GIVbacks-eligibility-form) won't be
+  // recognized by v5's filter, so their v5 (or v5-mirror) donations sneak
+  // through as eligible. Fetch v6's purple list here so we can cross-check
+  // every v5 row against it below. Soft-fails to an empty set when v6 Core
+  // is unreachable.
+  const v6PurpleListP = getPurpleListAddressSet()
+
+  const [v5Eligible, v6Donations, v5Ineligible, v6PurpleAddresses] =
+    await Promise.all([
+      v5EligibleP,
+      v6DonationsP,
+      v5IneligibleP,
+      v6PurpleListP,
+    ])
+
+  const isOnV6PurpleList = (donation: FormattedDonation): boolean => {
+    const giver = (donation.giverAddress || '').trim().toLowerCase()
+    return giver.length > 0 && v6PurpleAddresses.has(giver)
+  }
+
+  // Move v5 eligibles whose donor is on v6's purple list into the ineligible
+  // bucket — they fail Lauren's added eligibility rule even though v5's own
+  // filter let them through.
+  const v5EligibleAfterV6Purple: FormattedDonation[] = []
+  const v5PurpleListedDonations: FormattedDonation[] = []
+  for (const donation of v5Eligible) {
+    if (isOnV6PurpleList(donation)) {
+      v5PurpleListedDonations.push(donation)
+    } else {
+      v5EligibleAfterV6Purple.push(donation)
+    }
+  }
 
   // v6 Core is the source of truth for donations made via the v6 stack. The
   // legacy data-sync cron mirrors most v6 donations back into v5 (impact-graph)
@@ -258,8 +288,10 @@ export const getGivbacksRoundDonations = async (
   const v6Eligible = v6Donations.filter(
     donation => donation.isDonationGivbacksEligible !== false,
   )
-  const eligibleDonations = mergeAndDedupeDonations(v6Eligible, v5Eligible)
-    .map(donation => ({ ...donation, isDonationGivbacksEligible: true }))
+  const eligibleDonations = mergeAndDedupeDonations(
+    v6Eligible,
+    v5EligibleAfterV6Purple,
+  ).map(donation => ({ ...donation, isDonationGivbacksEligible: true }))
 
   if (!includeIneligible) {
     return eligibleDonations
@@ -268,10 +300,13 @@ export const getGivbacksRoundDonations = async (
   const v6Ineligible = v6Donations.filter(
     donation => donation.isDonationGivbacksEligible === false,
   )
-  // Same v6-first ordering for the ineligible bucket.
+  // Same v6-first ordering for the ineligible bucket. v5 donations whose
+  // donor sits on v6's purple list are appended here too so the all-donations
+  // export still surfaces them (tagged ineligible).
   const ineligibleDonations = [
     ...v6Ineligible,
     ...v5Ineligible,
+    ...v5PurpleListedDonations,
   ].map(donation => ({ ...donation, isDonationGivbacksEligible: false }))
 
   // Eligible rows are passed first so they win on any tx/recurring key collision
