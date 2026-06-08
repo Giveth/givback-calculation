@@ -7,14 +7,13 @@ import { parsePurpleListCsv, getPurpleListAddressSet } from '../src/purpleListEx
 
 let passed = 0
 let failed = 0
-const check = (label: string, fn: () => void) => {
-  try {
-    fn()
-    passed += 1
-  } catch (e: any) {
-    failed += 1
-    console.error(`FAIL: ${label}\n      ${e?.message ?? e}`)
-  }
+// Async-aware test runner. Sync test bodies still work (they resolve to
+// undefined). Previously `check` was synchronous and counted async tests as
+// passed before their assertions resolved — a real failure landed as an
+// unhandled rejection and the test still printed "passed".
+const tests: Array<{ label: string; fn: () => void | Promise<void> }> = []
+const check = (label: string, fn: () => void | Promise<void>) => {
+  tests.push({ label, fn })
 }
 
 const rows: PurpleListExportRow[] = [
@@ -52,11 +51,11 @@ check('AC#20/#21 rows carry recipient + eligibility-form sources', () => {
 })
 
 // AC #18 — v6 purple list fetch must soft-fail to empty when v6 Core is
-// unreachable / missing env config, so v5-only filtering still works.
-// Runs without GIVETH_V6_CORE_API_URL / POWER_SYNC_PASSWORD set, which makes
-// getPurpleListExportRows() throw the "missing config" error, which
-// getPurpleListAddressSet() must catch.
-check('AC#18 v6 purple-list fetch soft-fails to empty Set on error', async () => {
+// unreachable / missing env config, so v5-only filtering still works. Now
+// that env is read at call time (not module load), this test deterministically
+// hits the "missing config" branch in getPurpleListExportRows regardless of
+// what the developer's local .env happens to set.
+check('AC#18 v6 purple-list fetch soft-fails to empty Set when env unset', async () => {
   const originalUrl = process.env.GIVETH_V6_CORE_API_URL
   const originalPwd = process.env.POWER_SYNC_PASSWORD
   delete process.env.GIVETH_V6_CORE_API_URL
@@ -64,14 +63,39 @@ check('AC#18 v6 purple-list fetch soft-fails to empty Set on error', async () =>
   try {
     const result = await getPurpleListAddressSet()
     assert.ok(result instanceof Set, 'should return a Set')
-    assert.strictEqual(result.size, 0, 'should be empty on error')
+    assert.strictEqual(result.size, 0, 'should be empty when env is missing')
   } finally {
     if (originalUrl !== undefined) process.env.GIVETH_V6_CORE_API_URL = originalUrl
     if (originalPwd !== undefined) process.env.POWER_SYNC_PASSWORD = originalPwd
   }
 })
 
-console.log(`\npurpleListExport.test.ts: ${passed} passed, ${failed} failed`)
-if (failed > 0) {
-  process.exit(1)
-}
+// AC #18 — async-helper regression guard. If `check` silently swallows async
+// rejections again, this would print "passed" instead of failing.
+check('AC#18 async runner actually catches rejected promises', async () => {
+  let caught = false
+  try {
+    await Promise.reject(new Error('intentional'))
+  } catch {
+    caught = true
+  }
+  assert.strictEqual(caught, true)
+})
+
+// Run all tests sequentially (avoids races on shared process.env between
+// async tests).
+;(async () => {
+  for (const { label, fn } of tests) {
+    try {
+      await fn()
+      passed += 1
+    } catch (e: any) {
+      failed += 1
+      console.error(`FAIL: ${label}\n      ${e?.message ?? e}`)
+    }
+  }
+  console.log(`\npurpleListExport.test.ts: ${passed} passed, ${failed} failed`)
+  if (failed > 0) {
+    process.exit(1)
+  }
+})()
