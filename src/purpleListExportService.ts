@@ -58,3 +58,30 @@ export const getPurpleListExportRows = async (): Promise<PurpleListExportRow[]> 
 
 export const parsePurpleListCsv = (rows: PurpleListExportRow[]): string =>
   parse(rows, { fields: PURPLE_LIST_CSV_FIELDS })
+
+/**
+ * Returns a lowercase Set of addresses on v6 Core's purple list. The round
+ * export (issue #323) uses this to filter v5 donations whose donor is on v6's
+ * purple list but NOT on v5's own (impact-graph) purple list — e.g. a donor
+ * added to v6 directly without an impact-graph counterpart.
+ *
+ * Fails gracefully: returns an empty set on any error (missing config,
+ * v6 Core unreachable, endpoint not yet deployed) so the export still
+ * works at v5-only-filtering quality until v6 Core is available.
+ */
+export const getPurpleListAddressSet = async (): Promise<Set<string>> => {
+  try {
+    const rows = await getPurpleListExportRows()
+    const addresses = rows
+      .map(row => (row.address || '').trim().toLowerCase())
+      .filter(address => address.length > 0)
+    return new Set(addresses)
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : String(error)
+    console.warn(
+      `Could not fetch v6 Core purple list; v5 donations will NOT be cross-checked against it. ${message}`,
+    )
+    return new Set()
+  }
+}
