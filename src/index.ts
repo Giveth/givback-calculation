@@ -49,6 +49,9 @@ import {get} from "https";
 import {getAssignHistory} from "./givFarm/givFarmService";
 
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
+// Documented regular-donation minimum for GIVbacks eligibility (issue #323).
+// Mirrors v6 Core's DEFAULT_MINIMUM_USD_AMOUNT.
+const DEFAULT_MIN_ELIGIBLE_VALUE_USD = 4
 const {version} = require('../package.json');
 
 const app = express();
@@ -784,7 +787,15 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
       throw new Error('maxPrizePool must be a positive number')
     }
 
-    const minEligibleValueUsd = Number(req.query.minEligibleValueUsd) || 0
+    // Regular-donation minimum USD threshold (issue #323). Defaults to the
+    // documented $4 when the caller omits it — previously defaulted to 0, which
+    // made every donation eligible and was also forwarded to v6 Core, overriding
+    // its own $4 default (0 ?? 4 === 0). An explicit value (incl. 0) is honored.
+    const minEligibleValueUsd =
+      req.query.minEligibleValueUsd !== undefined &&
+      Number.isFinite(Number(req.query.minEligibleValueUsd))
+        ? Number(req.query.minEligibleValueUsd)
+        : DEFAULT_MIN_ELIGIBLE_VALUE_USD
     const includeIneligible = includeAllDonations === 'yes'
 
     // Strict UTC parsing so the round window and price-block lookup are
@@ -800,14 +811,34 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
     // passed for reproducing historical numbers without on-chain lookups.
     let givPrice = Number(req.query.givPrice)
     if (!Number.isFinite(givPrice) || givPrice <= 0) {
-      const endDateTimestamp = endMoment.unix()
-      const priceBlock = await getBlockByTimestamp(endDateTimestamp, 1)
-      const givPriceInETH = await getEthGivPriceInMainnet(priceBlock)
-      const ethPrice = await getEthPriceTimeStamp(endDateTimestamp)
-      givPrice = givPriceInETH * ethPrice
-      console.log('/givbacks-round-report computed GIV price', {
-        endDateTimestamp, priceBlock, givPriceInETH, ethPrice, givPrice
-      })
+      try {
+        const endDateTimestamp = endMoment.unix()
+        const priceBlock = await getBlockByTimestamp(endDateTimestamp, 1)
+        const givPriceInETH = await getEthGivPriceInMainnet(priceBlock)
+        const ethPrice = await getEthPriceTimeStamp(endDateTimestamp)
+        givPrice = givPriceInETH * ethPrice
+        console.log('/givbacks-round-report computed GIV price', {
+          endDateTimestamp, priceBlock, givPriceInETH, ethPrice, givPrice
+        })
+      } catch (priceError: any) {
+        // Auto price computation hits external services (findblock, the GIV
+        // subgraph, and a CryptoCompare ETH/USD lookup). When one of those
+        // fails (e.g. CryptoCompare 401 without an API key) the raw error is
+        // opaque ("Request failed with status code 401"). Surface an
+        // actionable message and the documented override instead.
+        console.log('/givbacks-round-report price computation failed', {
+          error: priceError?.message ?? priceError,
+        })
+        throw new Error(
+          `Could not auto-compute the round-end GIV price (${priceError?.message ?? priceError}). ` +
+            'Pass an explicit &givPrice=<USD per GIV> to override.',
+        )
+      }
+      if (!Number.isFinite(givPrice) || givPrice <= 0) {
+        throw new Error(
+          'Auto-computed GIV price was invalid. Pass an explicit &givPrice=<USD per GIV> to override.',
+        )
+      }
     }
 
     const donations = await getGivbacksRoundDonations(

@@ -109,13 +109,29 @@ export const getEthGivPriceInMainnet = async (blockNumber:number):Promise<number
 
 export const getEthPriceTimeStamp = async (timestampInSeconds:number):Promise<number> => {
   const cryptoCompareUrl = 'https://min-api.cryptocompare.com/data/dayAvg'
+  // CryptoCompare now rejects keyless requests to min-api with HTTP 401.
+  // Send the API key when configured (free-tier keys work). Without it the
+  // call 401s and the caller surfaces an actionable error telling the operator
+  // to pass &givPrice= instead.
+  const apiKey = process.env.CRYPTOCOMPARE_API_KEY
   const result = await axios.get(cryptoCompareUrl, {
     params: {
       fsym: 'ETH',
       tsym: 'USD',
-      toTs: timestampInSeconds
-    }
+      toTs: timestampInSeconds,
+      ...(apiKey ? { api_key: apiKey } : {}),
+    },
+    ...(apiKey ? { headers: { authorization: `Apikey ${apiKey}` } } : {}),
   });
+  // CryptoCompare returns 200 with { Response: 'Error', Message: ... } on some
+  // failures rather than an HTTP error — treat a missing USD field as a failure
+  // so the caller falls back to the &givPrice= guidance.
+  if (result.data && result.data.Response === 'Error') {
+    throw new Error(`CryptoCompare error: ${result.data.Message || 'unknown'}`)
+  }
+  if (typeof result.data?.USD !== 'number') {
+    throw new Error('CryptoCompare returned no ETH/USD price')
+  }
   return result.data.USD
 
 }
