@@ -114,12 +114,15 @@ export const getEthPriceTimeStamp = async (timestampInSeconds:number):Promise<nu
   // call 401s and the caller surfaces an actionable error telling the operator
   // to pass &givPrice= instead.
   const apiKey = process.env.CRYPTOCOMPARE_API_KEY
+  // Send the key ONLY via the Authorization header, never as a query param —
+  // a ?api_key= would be serialized into axios's error config.url and leak into
+  // logs (this is the failure/fallback path). CryptoCompare authenticates with
+  // the header alone.
   const result = await axios.get(cryptoCompareUrl, {
     params: {
       fsym: 'ETH',
       tsym: 'USD',
       toTs: timestampInSeconds,
-      ...(apiKey ? { api_key: apiKey } : {}),
     },
     ...(apiKey ? { headers: { authorization: `Apikey ${apiKey}` } } : {}),
   });

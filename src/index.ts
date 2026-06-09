@@ -814,6 +814,16 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
       try {
         const endDateTimestamp = endMoment.unix()
         const priceBlock = await getBlockByTimestamp(endDateTimestamp, 1)
+        // getBlockByTimestamp swallows errors and returns 0. A 0 block is
+        // falsy, so getEthGivPriceInMainnet(0) would silently query the
+        // CURRENT pool instead of the round-end block — producing a plausible
+        // but wrong price that escapes the givPrice<=0 guard below and would
+        // scale the entire round's GIVbacks distribution. Fail loudly instead.
+        if (!priceBlock || priceBlock <= 0) {
+          throw new Error(
+            'Could not resolve a mainnet block for the round-end timestamp',
+          )
+        }
         const givPriceInETH = await getEthGivPriceInMainnet(priceBlock)
         const ethPrice = await getEthPriceTimeStamp(endDateTimestamp)
         givPrice = givPriceInETH * ethPrice
