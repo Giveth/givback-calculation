@@ -203,6 +203,39 @@ const getV6EligibleDonations = async (
 }
 
 /**
+ * Fetches the current GIV/USD price from v6 Core's internal endpoint, which
+ * proxies BlockchainService.getTokenPrice (the same CoinGecko-backed source
+ * that sets donation.priceUsd). Used by the GIVbacks round export (issue #323)
+ * instead of CryptoCompare. Reuses the same auth/connectivity as the donations
+ * feed — no new env var.
+ *
+ * Returns undefined when v6 Core is not configured (so the caller can surface
+ * the &givPrice= override guidance). Throws on a configured-but-failing call or
+ * an invalid price.
+ */
+export const getGivPriceFromV6Core = async (): Promise<number | undefined> => {
+  if (!givethV6CoreApiUrl || !givethV6CoreApiPassword) {
+    return undefined
+  }
+
+  const response = await axios.get(
+    `${givethV6CoreApiUrl.replace(/\/$/, '')}/api/internal/givbacks/giv-price`,
+    {
+      headers: {
+        [givethV6CoreApiPasswordHeader]: givethV6CoreApiPassword,
+      },
+      timeout: givethV6CoreApiTimeoutMs,
+    },
+  )
+
+  const priceUsd = Number(response?.data?.data?.priceUsd)
+  if (!Number.isFinite(priceUsd) || priceUsd <= 0) {
+    throw new Error('v6 Core returned an invalid GIV price')
+  }
+  return priceUsd
+}
+
+/**
  * GIVbacks round export (issue #323) data source: returns every donation in the
  * window from BOTH v5 (giveth.io) and v6 Core, each tagged with
  * `isDonationGivbacksEligible`. When `includeIneligible` is false only eligible
