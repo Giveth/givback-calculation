@@ -31,6 +31,7 @@ import {
   getDonationsReport,
   getEligibleDonations,
   getGivbacksRoundDonations,
+  getGivPriceFromV6Core,
   getVerifiedPurpleListDonations
 } from './givethIoService'
 
@@ -807,46 +808,34 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
       throw new Error(`startDate and endDate must be UTC ${dateFormat}`)
     }
 
-    // GIV price at the end of the round (issue #323). An explicit override may be
-    // passed for reproducing historical numbers without on-chain lookups.
+    // GIV price for the round (issue #323). An explicit &givPrice= override is
+    // used as-is — it's the path for reproducing a historical round at its true
+    // round-end price. When omitted, we fetch the CURRENT GIV/USD price from v6
+    // Core's internal endpoint (the same CoinGecko-backed source that prices
+    // donations). Run right after a round closes, current ≈ round-end price.
     let givPrice = Number(req.query.givPrice)
     if (!Number.isFinite(givPrice) || givPrice <= 0) {
       try {
-        const endDateTimestamp = endMoment.unix()
-        const priceBlock = await getBlockByTimestamp(endDateTimestamp, 1)
-        // getBlockByTimestamp swallows errors and returns 0. A 0 block is
-        // falsy, so getEthGivPriceInMainnet(0) would silently query the
-        // CURRENT pool instead of the round-end block — producing a plausible
-        // but wrong price that escapes the givPrice<=0 guard below and would
-        // scale the entire round's GIVbacks distribution. Fail loudly instead.
-        if (!priceBlock || priceBlock <= 0) {
-          throw new Error(
-            'Could not resolve a mainnet block for the round-end timestamp',
-          )
+        const fetched = await getGivPriceFromV6Core()
+        if (fetched === undefined) {
+          throw new Error('v6 Core price source is not configured')
         }
-        const givPriceInETH = await getEthGivPriceInMainnet(priceBlock)
-        const ethPrice = await getEthPriceTimeStamp(endDateTimestamp)
-        givPrice = givPriceInETH * ethPrice
-        console.log('/givbacks-round-report computed GIV price', {
-          endDateTimestamp, priceBlock, givPriceInETH, ethPrice, givPrice
+        givPrice = fetched
+        console.log('/givbacks-round-report fetched GIV price from v6 Core', {
+          givPrice,
         })
       } catch (priceError: any) {
-        // Auto price computation hits external services (findblock, the GIV
-        // subgraph, and a CryptoCompare ETH/USD lookup). When one of those
-        // fails (e.g. CryptoCompare 401 without an API key) the raw error is
-        // opaque ("Request failed with status code 401"). Surface an
-        // actionable message and the documented override instead.
-        console.log('/givbacks-round-report price computation failed', {
+        console.log('/givbacks-round-report price fetch failed', {
           error: priceError?.message ?? priceError,
         })
         throw new Error(
-          `Could not auto-compute the round-end GIV price (${priceError?.message ?? priceError}). ` +
+          `Could not fetch the round GIV price (${priceError?.message ?? priceError}). ` +
             'Pass an explicit &givPrice=<USD per GIV> to override.',
         )
       }
       if (!Number.isFinite(givPrice) || givPrice <= 0) {
         throw new Error(
-          'Auto-computed GIV price was invalid. Pass an explicit &givPrice=<USD per GIV> to override.',
+          'Fetched GIV price was invalid. Pass an explicit &givPrice=<USD per GIV> to override.',
         )
       }
     }
