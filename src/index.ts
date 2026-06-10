@@ -791,12 +791,17 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
     // Regular-donation minimum USD threshold (issue #323). Defaults to the
     // documented $4 when the caller omits it — previously defaulted to 0, which
     // made every donation eligible and was also forwarded to v6 Core, overriding
-    // its own $4 default (0 ?? 4 === 0). An explicit value (incl. 0) is honored.
-    const minEligibleValueUsd =
-      req.query.minEligibleValueUsd !== undefined &&
-      Number.isFinite(Number(req.query.minEligibleValueUsd))
-        ? Number(req.query.minEligibleValueUsd)
-        : DEFAULT_MIN_ELIGIBLE_VALUE_USD
+    // its own $4 default (0 ?? 4 === 0). A valid explicit value (incl. 0) is
+    // honored; a negative or non-numeric value is rejected rather than silently
+    // broadening eligibility.
+    let minEligibleValueUsd = DEFAULT_MIN_ELIGIBLE_VALUE_USD
+    if (req.query.minEligibleValueUsd !== undefined) {
+      const parsedMin = Number(req.query.minEligibleValueUsd)
+      if (!Number.isFinite(parsedMin) || parsedMin < 0) {
+        throw new Error('minEligibleValueUsd must be a non-negative number')
+      }
+      minEligibleValueUsd = parsedMin
+    }
     const includeIneligible = includeAllDonations === 'yes'
 
     // Strict UTC parsing so the round window and price-block lookup are

@@ -20,11 +20,19 @@ const check = (label: string, fn: () => void) => {
 
 const DEFAULT_MIN_ELIGIBLE_VALUE_USD = 4
 
-// Mirror of the parse in src/index.ts /givbacks-round-report handler.
-const resolveMinEligibleValueUsd = (raw: unknown): number =>
-  raw !== undefined && Number.isFinite(Number(raw))
-    ? Number(raw)
-    : DEFAULT_MIN_ELIGIBLE_VALUE_USD
+// Mirror of the parse in src/index.ts /givbacks-round-report handler: default
+// to $4 when omitted, honor a valid explicit value (incl. 0), and THROW on a
+// negative or non-numeric value rather than silently broadening eligibility.
+const resolveMinEligibleValueUsd = (raw: unknown): number => {
+  if (raw === undefined) {
+    return DEFAULT_MIN_ELIGIBLE_VALUE_USD
+  }
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error('minEligibleValueUsd must be a non-negative number')
+  }
+  return parsed
+}
 
 check('omitted -> defaults to $4 (not 0)', () => {
   assert.strictEqual(resolveMinEligibleValueUsd(undefined), 4)
@@ -38,14 +46,18 @@ check('explicit value is honored', () => {
   assert.strictEqual(resolveMinEligibleValueUsd('10'), 10)
 })
 
-check('non-numeric garbage -> default $4', () => {
-  assert.strictEqual(resolveMinEligibleValueUsd('abc'), 4)
+check('non-numeric garbage -> throws (rejected, not silently defaulted)', () => {
+  assert.throws(() => resolveMinEligibleValueUsd('abc'), /non-negative/)
+})
+
+check('negative value -> throws (does not broaden eligibility)', () => {
+  assert.throws(() => resolveMinEligibleValueUsd('-1'), /non-negative/)
 })
 
 check('empty string -> Number("") is 0 which is finite, honored as 0', () => {
   // Express omits absent params (undefined); an explicit empty value is rare,
-  // but Number('') === 0 is finite, so it resolves to 0. Documented here so the
-  // behavior is intentional, not accidental.
+  // but Number('') === 0 is finite and non-negative, so it resolves to 0.
+  // Documented here so the behavior is intentional, not accidental.
   assert.strictEqual(resolveMinEligibleValueUsd(''), 0)
 })
 

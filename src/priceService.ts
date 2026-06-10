@@ -119,6 +119,10 @@ export const getEthPriceTimeStamp = async (timestampInSeconds:number):Promise<nu
   // logs (this is the failure/fallback path). CryptoCompare authenticates with
   // the header alone.
   const result = await axios.get(cryptoCompareUrl, {
+    // Bound the external call so a slow/hanging CryptoCompare can't stall the
+    // request handler. On timeout axios throws and the caller surfaces the
+    // &givPrice= override guidance.
+    timeout: Number(process.env.CRYPTOCOMPARE_TIMEOUT_MS || 10000),
     params: {
       fsym: 'ETH',
       tsym: 'USD',
