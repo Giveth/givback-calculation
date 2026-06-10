@@ -30,8 +30,19 @@ import {
   getAllProjectsSortByRank,
   getDonationsReport,
   getEligibleDonations,
+  getGivbacksRoundDonations,
+  getGivPriceFromV6Core,
   getVerifiedPurpleListDonations
 } from './givethIoService'
+
+import {
+  buildGivbacksRoundReport,
+  parseRoundDonationsCsv
+} from './givbacksRoundReportService'
+import {
+  getPurpleListExportRows,
+  parsePurpleListCsv
+} from './purpleListExportService'
 
 import {getPurpleList} from './commonServices'
 import {get_dumpers_list} from "./subgraphService";
@@ -39,11 +50,46 @@ import {get} from "https";
 import {getAssignHistory} from "./givFarm/givFarmService";
 
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
+// Documented regular-donation minimum for GIVbacks eligibility (issue #323).
+// Mirrors v6 Core's DEFAULT_MINIMUM_USD_AMOUNT.
+const DEFAULT_MIN_ELIGIBLE_VALUE_USD = 4
 const {version} = require('../package.json');
 
 const app = express();
 
 swaggerDocument.info.version = version
+
+const donationCsvFields = [
+  'amount',
+  'currency',
+  'createdAt',
+  'valueUsd',
+  'givbackFactor',
+  'projectRank',
+  'bottomRankInRound',
+  'givbacksRound',
+  'giverAddress',
+  'txHash',
+  'network',
+  'source',
+  'giverName',
+  'giverEmail',
+  'projectLink',
+  'niceTokens',
+  'info',
+  'isReferrerGivbackEligible',
+  'referrerWallet',
+  'referrer',
+  'referred',
+  'anonymous',
+  'parentRecurringDonationId',
+  'parentRecurringDonationTxHash',
+  'valueUsdAfterGivbackFactor',
+]
+
+const parseDonationCsv = (donations: FormattedDonation[]): string => {
+  return parse(donations, {fields: donationCsvFields})
+}
 
 // swaggerDocument.basePath = process.env.NODE_ENV === 'staging' ? '/staging' : '/'
 // const swaggerPrefix = process.env.NODE_ENV === 'staging' ? '/staging' : ''
@@ -262,7 +308,7 @@ const getEligibleAndNonEligibleDonations = async (req: Request, res: Response, e
       })
 
     if (download === 'yes') {
-      const csv = parse(donations);
+      const csv = parseDonationCsv(donations);
       const fileName = `${eligible ? 'eligible-donations' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
@@ -310,7 +356,7 @@ const getEligibleDonationsForNiceToken = async (req: Request, res: Response, eli
 
 
     if (download === 'yes') {
-      const csv = parse(donations);
+      const csv = parseDonationCsv(donations);
       const fileName = `${eligible ? 'eligible-donations-for-nice-tokens' : 'not-eligible-donations'}-${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
@@ -355,7 +401,7 @@ app.get(`/purpleList-donations-to-verifiedProjects`, async (req: Request, res: R
       })
 
     if (download === 'yes') {
-      const csv = parse(donations);
+      const csv = parseDonationCsv(donations);
       const fileName = `purpleList-donations-to-verifiedProjectz-${startDate}-${endDate}.csv`;
       res.setHeader('Content-disposition', "attachment; filename=" + fileName);
       res.setHeader('Content-type', 'application/json');
@@ -720,6 +766,148 @@ app.get(`/calculate-updated`,
       })
     }
   })
+
+// Issue #323: GIVbacks Round Donation Export + Prize Pool Calculator.
+// Inputs: startDate / endDate (UTC, format YYYY/MM/DD-HH:mm:ss), maxPrizePool
+// (GIV). Optional: givPrice (else computed at round end), minEligibleValueUsd,
+// givethCommunityProjectSlug, includeAllDonations=yes (eligible + ineligible),
+// download=yes (CSV). Returns the per-donation export + prize-pool summary.
+app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
+  try {
+    const {
+      startDate, endDate, download, includeAllDonations,
+      givethCommunityProjectSlug
+    } = req.query;
+
+    if (!startDate || !endDate) {
+      throw new Error('startDate and endDate are required')
+    }
+
+    const maxPrizePool = Number(req.query.maxPrizePool)
+    if (!Number.isFinite(maxPrizePool) || maxPrizePool <= 0) {
+      throw new Error('maxPrizePool must be a positive number')
+    }
+
+    // Regular-donation minimum USD threshold (issue #323). Defaults to the
+    // documented $4 when the caller omits it — previously defaulted to 0, which
+    // made every donation eligible and was also forwarded to v6 Core, overriding
+    // its own $4 default (0 ?? 4 === 0). A valid explicit value (incl. 0) is
+    // honored; a negative or non-numeric value is rejected rather than silently
+    // broadening eligibility.
+    let minEligibleValueUsd = DEFAULT_MIN_ELIGIBLE_VALUE_USD
+    if (req.query.minEligibleValueUsd !== undefined) {
+      const parsedMin = Number(req.query.minEligibleValueUsd)
+      if (!Number.isFinite(parsedMin) || parsedMin < 0) {
+        throw new Error('minEligibleValueUsd must be a non-negative number')
+      }
+      minEligibleValueUsd = parsedMin
+    }
+    const includeIneligible = includeAllDonations === 'yes'
+
+    // Strict UTC parsing so the round window and price-block lookup are
+    // deterministic regardless of server timezone (issue #323).
+    const dateFormat = 'YYYY/MM/DD-HH:mm:ss'
+    const startMoment = moment.utc(startDate as string, dateFormat, true)
+    const endMoment = moment.utc(endDate as string, dateFormat, true)
+    if (!startMoment.isValid() || !endMoment.isValid()) {
+      throw new Error(`startDate and endDate must be UTC ${dateFormat}`)
+    }
+
+    // GIV price for the round (issue #323). An explicit &givPrice= override is
+    // used as-is — it's the path for reproducing a historical round at its true
+    // round-end price. When omitted, we fetch the CURRENT GIV/USD price from v6
+    // Core's internal endpoint (the same CoinGecko-backed source that prices
+    // donations). Run right after a round closes, current ≈ round-end price.
+    let givPrice = Number(req.query.givPrice)
+    if (!Number.isFinite(givPrice) || givPrice <= 0) {
+      try {
+        const fetched = await getGivPriceFromV6Core()
+        if (fetched === undefined) {
+          throw new Error('v6 Core price source is not configured')
+        }
+        givPrice = fetched
+        console.log('/givbacks-round-report fetched GIV price from v6 Core', {
+          givPrice,
+        })
+      } catch (priceError: any) {
+        console.log('/givbacks-round-report price fetch failed', {
+          error: priceError?.message ?? priceError,
+        })
+        throw new Error(
+          `Could not fetch the round GIV price (${priceError?.message ?? priceError}). ` +
+            'Pass an explicit &givPrice=<USD per GIV> to override.',
+        )
+      }
+      if (!Number.isFinite(givPrice) || givPrice <= 0) {
+        throw new Error(
+          'Fetched GIV price was invalid. Pass an explicit &givPrice=<USD per GIV> to override.',
+        )
+      }
+    }
+
+    const donations = await getGivbacksRoundDonations(
+      {
+        beginDate: startDate as string,
+        endDate: endDate as string,
+        minEligibleValueUsd,
+        givethCommunityProjectSlug: givethCommunityProjectSlug as string,
+      },
+      includeIneligible,
+    )
+
+    const report = buildGivbacksRoundReport({
+      donations,
+      givPrice,
+      maxPrizePool,
+      roundStartTime: startDate as string,
+      roundEndTime: endDate as string,
+    })
+
+    if (download === 'yes') {
+      const csv = parseRoundDonationsCsv(report.donations)
+      const scope = includeIneligible ? 'all' : 'eligible'
+      const safeStart = (startDate as string).replace(/[/:]/g, '-')
+      const safeEnd = (endDate as string).replace(/[/:]/g, '-')
+      const fileName = `givbacks-round-donations-${scope}-${safeStart}-${safeEnd}.csv`
+      res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
+      res.setHeader('Content-type', 'text/csv')
+      res.send(csv)
+    } else {
+      res.send({
+        ...report.summary,
+        includeAllDonations: includeIneligible,
+        totalDonationsInExport: report.donations.length,
+        donations: report.donations,
+      })
+    }
+  } catch (e: any) {
+    console.log('/givbacks-round-report error', { error: e })
+    res.status(400).send({ message: e.message })
+  }
+})
+
+// Issue #323: export the current GIVbacks purple list (addresses excluded from
+// receiving GIVbacks) separately from the donation export.
+app.get(`/givbacks-purple-list`, async (req: Request, res: Response) => {
+  try {
+    const { download } = req.query;
+    const rows = await getPurpleListExportRows()
+
+    if (download === 'yes') {
+      const csv = parsePurpleListCsv(rows)
+      const safeTimestamp = new Date().toISOString().replace(/[/:]/g, '-')
+      const fileName = `givbacks-purple-list-${safeTimestamp}.csv`
+      res.setHeader('Content-disposition', 'attachment; filename=' + fileName)
+      res.setHeader('Content-type', 'text/csv')
+      res.send(csv)
+    } else {
+      res.send({ totalAddresses: rows.length, purpleList: rows })
+    }
+  } catch (e: any) {
+    console.log('/givbacks-purple-list error', { error: e })
+    res.status(400).send({ message: e.message })
+  }
+})
 
 app.get(`/current-round`, async (req: Request, res: Response) => {
     try {

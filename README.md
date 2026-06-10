@@ -1,17 +1,5 @@
 # Givback Calculation Service
 
-> **Reference version — March 2026 (v5-only).** This branch was reverted to
-> commit [`97024da`](https://github.com/Giveth/givback-calculation/commit/97024da2811513f18aec3231db506d0ec6e17257)
-> (`Merge pull request #71 — Ensure Cause donation data sent to GIVbacks is of
-> origin tx information`, 2025-11-12), which is the last commit before the
-> April/May 2026 changes that attempted to add v6 donations. All v6-related
-> work (PRs #72, #74, #75, #76) has been removed from this branch. The v6 work
-> remains available on the original feature branches
-> (`issue-264-v6-donations-calculate-api`, `issue-323-givbacks-round-export`)
-> as a starting point for the new combined v5/v6 GIVbacks system. See
-> [Giveth/giveth-dapps-v2#5569](https://github.com/Giveth/giveth-dapps-v2/issues/5569)
-> for context.
-
 ## 1. Project Overview
 
 ### Purpose

@@ -109,13 +109,36 @@ export const getEthGivPriceInMainnet = async (blockNumber:number):Promise<number
 
 export const getEthPriceTimeStamp = async (timestampInSeconds:number):Promise<number> => {
   const cryptoCompareUrl = 'https://min-api.cryptocompare.com/data/dayAvg'
+  // CryptoCompare now rejects keyless requests to min-api with HTTP 401.
+  // Send the API key when configured (free-tier keys work). Without it the
+  // call 401s and the caller surfaces an actionable error telling the operator
+  // to pass &givPrice= instead.
+  const apiKey = process.env.CRYPTOCOMPARE_API_KEY
+  // Send the key ONLY via the Authorization header, never as a query param —
+  // a ?api_key= would be serialized into axios's error config.url and leak into
+  // logs (this is the failure/fallback path). CryptoCompare authenticates with
+  // the header alone.
   const result = await axios.get(cryptoCompareUrl, {
+    // Bound the external call so a slow/hanging CryptoCompare can't stall the
+    // request handler. On timeout axios throws and the caller surfaces the
+    // &givPrice= override guidance.
+    timeout: Number(process.env.CRYPTOCOMPARE_TIMEOUT_MS || 10000),
     params: {
       fsym: 'ETH',
       tsym: 'USD',
-      toTs: timestampInSeconds
-    }
+      toTs: timestampInSeconds,
+    },
+    ...(apiKey ? { headers: { authorization: `Apikey ${apiKey}` } } : {}),
   });
+  // CryptoCompare returns 200 with { Response: 'Error', Message: ... } on some
+  // failures rather than an HTTP error — treat a missing USD field as a failure
+  // so the caller falls back to the &givPrice= guidance.
+  if (result.data && result.data.Response === 'Error') {
+    throw new Error(`CryptoCompare error: ${result.data.Message || 'unknown'}`)
+  }
+  if (typeof result.data?.USD !== 'number') {
+    throw new Error('CryptoCompare returned no ETH/USD price')
+  }
   return result.data.USD
 
 }
