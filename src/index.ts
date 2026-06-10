@@ -31,6 +31,7 @@ import {
   getDonationsReport,
   getEligibleDonations,
   getGivbacksRoundDonations,
+  getGivPriceFromV6Core,
   getVerifiedPurpleListDonations
 } from './givethIoService'
 
@@ -49,6 +50,9 @@ import {get} from "https";
 import {getAssignHistory} from "./givFarm/givFarmService";
 
 const nrGIVAddress = '0xA1514067E6fE7919FB239aF5259FfF120902b4f9'
+// Documented regular-donation minimum for GIVbacks eligibility (issue #323).
+// Mirrors v6 Core's DEFAULT_MINIMUM_USD_AMOUNT.
+const DEFAULT_MIN_ELIGIBLE_VALUE_USD = 4
 const {version} = require('../package.json');
 
 const app = express();
@@ -784,7 +788,20 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
       throw new Error('maxPrizePool must be a positive number')
     }
 
-    const minEligibleValueUsd = Number(req.query.minEligibleValueUsd) || 0
+    // Regular-donation minimum USD threshold (issue #323). Defaults to the
+    // documented $4 when the caller omits it — previously defaulted to 0, which
+    // made every donation eligible and was also forwarded to v6 Core, overriding
+    // its own $4 default (0 ?? 4 === 0). A valid explicit value (incl. 0) is
+    // honored; a negative or non-numeric value is rejected rather than silently
+    // broadening eligibility.
+    let minEligibleValueUsd = DEFAULT_MIN_ELIGIBLE_VALUE_USD
+    if (req.query.minEligibleValueUsd !== undefined) {
+      const parsedMin = Number(req.query.minEligibleValueUsd)
+      if (!Number.isFinite(parsedMin) || parsedMin < 0) {
+        throw new Error('minEligibleValueUsd must be a non-negative number')
+      }
+      minEligibleValueUsd = parsedMin
+    }
     const includeIneligible = includeAllDonations === 'yes'
 
     // Strict UTC parsing so the round window and price-block lookup are
@@ -796,18 +813,36 @@ app.get(`/givbacks-round-report`, async (req: Request, res: Response) => {
       throw new Error(`startDate and endDate must be UTC ${dateFormat}`)
     }
 
-    // GIV price at the end of the round (issue #323). An explicit override may be
-    // passed for reproducing historical numbers without on-chain lookups.
+    // GIV price for the round (issue #323). An explicit &givPrice= override is
+    // used as-is — it's the path for reproducing a historical round at its true
+    // round-end price. When omitted, we fetch the CURRENT GIV/USD price from v6
+    // Core's internal endpoint (the same CoinGecko-backed source that prices
+    // donations). Run right after a round closes, current ≈ round-end price.
     let givPrice = Number(req.query.givPrice)
     if (!Number.isFinite(givPrice) || givPrice <= 0) {
-      const endDateTimestamp = endMoment.unix()
-      const priceBlock = await getBlockByTimestamp(endDateTimestamp, 1)
-      const givPriceInETH = await getEthGivPriceInMainnet(priceBlock)
-      const ethPrice = await getEthPriceTimeStamp(endDateTimestamp)
-      givPrice = givPriceInETH * ethPrice
-      console.log('/givbacks-round-report computed GIV price', {
-        endDateTimestamp, priceBlock, givPriceInETH, ethPrice, givPrice
-      })
+      try {
+        const fetched = await getGivPriceFromV6Core()
+        if (fetched === undefined) {
+          throw new Error('v6 Core price source is not configured')
+        }
+        givPrice = fetched
+        console.log('/givbacks-round-report fetched GIV price from v6 Core', {
+          givPrice,
+        })
+      } catch (priceError: any) {
+        console.log('/givbacks-round-report price fetch failed', {
+          error: priceError?.message ?? priceError,
+        })
+        throw new Error(
+          `Could not fetch the round GIV price (${priceError?.message ?? priceError}). ` +
+            'Pass an explicit &givPrice=<USD per GIV> to override.',
+        )
+      }
+      if (!Number.isFinite(givPrice) || givPrice <= 0) {
+        throw new Error(
+          'Fetched GIV price was invalid. Pass an explicit &givPrice=<USD per GIV> to override.',
+        )
+      }
     }
 
     const donations = await getGivbacksRoundDonations(
