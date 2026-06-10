@@ -8,6 +8,10 @@ const configPurpleList = process.env.PURPLE_LIST ? process.env.PURPLE_LIST.split
 const whiteListDonations = process.env.WHITELIST_DONATIONS ? process.env.WHITELIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 const blackListDonations = process.env.BLACKLIST_DONATIONS ? process.env.BLACKLIST_DONATIONS.split(',').map(address => address.toLowerCase()) : []
 
+const normalizeAddressOrHash = (value?: string | null): string => {
+    return value ? value.toLowerCase() : ''
+}
+
 // Related to admin bro
 export const getPurpleList = async (): Promise<string[]> => {
     const query = gql`
@@ -25,9 +29,15 @@ export const getPurpleList = async (): Promise<string[]> => {
 export const filterDonationsWithPurpleList = async (donations: FormattedDonation[], disablePurpleList = false): Promise<FormattedDonation[]> => {
     const purpleList = disablePurpleList ? [] : await getPurpleList()
     return donations.filter(item => {
-        const isGiverPurpleList = purpleList.includes(item.giverAddress.toLowerCase())
-        const isDonationWhitelisted = whiteListDonations.includes(item.txHash.toLowerCase())
-        const isDonationBlacklisted = blackListDonations.includes(item.txHash.toLowerCase())
+        const giverAddress = normalizeAddressOrHash(item.giverAddress)
+        const txHash = normalizeAddressOrHash(item.txHash)
+        const isGiverPurpleList = purpleList.includes(giverAddress)
+        const isDonationWhitelisted = txHash
+            ? whiteListDonations.includes(txHash)
+            : false
+        const isDonationBlacklisted = txHash
+            ? blackListDonations.includes(txHash)
+            : false
         if (isDonationWhitelisted) {
             // It's important to check whitelist before purpleList
             return true
@@ -43,7 +53,7 @@ export const filterDonationsWithPurpleList = async (donations: FormattedDonation
 export const purpleListDonations = async (donations: FormattedDonation[], disablePurpleList = false): Promise<FormattedDonation[]> => {
     const purpleList = disablePurpleList ? [] : await getPurpleList()
     return donations.filter(item => {
-        return purpleList.includes(item.giverAddress.toLowerCase())
+        return purpleList.includes(normalizeAddressOrHash(item.giverAddress))
     })
 }
 

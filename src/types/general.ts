@@ -13,6 +13,7 @@ export interface FormattedDonation {
   source: string,
   giverName: string
   giverEmail?: string,
+  donorMasterName?: string,
   projectLink?: string,
   niceTokens?: string,
   info?: string,
@@ -24,6 +25,12 @@ export interface FormattedDonation {
   parentRecurringDonationId?: string,
   parentRecurringDonationTxHash?: string,
   valueUsdAfterGivbackFactor?: number,
+  // GIVbacks round export (issue #323) fields:
+  txLink?: string,
+  isDonationGivbacksEligible?: boolean,
+  isProjectGivbacksEligible?: boolean,
+  raffleTicketsPerDonation?: number,
+  raffleTicketsPerDonorTotal?: number,
 }
 
 export interface GivethIoDonation {
@@ -44,6 +51,8 @@ export interface GivethIoDonation {
   source: string,
   user: {
     name: string,
+    firstName?: string,
+    lastName?: string,
     email: string,
     walletAddress: string
   }
@@ -80,6 +89,7 @@ export interface GivethIoDonation {
   status: string,
   anonymous: boolean,
   isProjectGivbackEligible: boolean,
+  isTokenEligibleForGivback?: boolean,
   isReferrerGivbackEligible?: boolean,
   referrerWallet?: string
   numberOfStreamedDonations?: number
@@ -144,4 +154,11 @@ export interface GIVbacksRound {
   round: number,
   start: string,
   end: string
+}
+
+export interface PurpleListExportRow {
+  address: string,
+  network: string | null,
+  source: 'projectRecipientAddress' | 'givbacksEligibilityForm',
+  projectLink: string | null,
 }
