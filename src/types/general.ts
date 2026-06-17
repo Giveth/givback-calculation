@@ -34,6 +34,9 @@ export interface FormattedDonation {
 }
 
 export interface GivethIoDonation {
+  // v5 donation primary key. Used to dedupe rows when a date range is fetched
+  // in multiple sub-windows (issue Giveth/giveth-dapps-v2#5569).
+  id?: string,
   amount: string,
   currency: string,
   createdAt: string,
