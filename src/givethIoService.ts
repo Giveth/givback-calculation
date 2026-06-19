@@ -72,6 +72,225 @@ const toGivethIoQueryDate = (apiDate: string, fieldName: string): string => {
   return queryDate
 }
 
+// The giveth.io GraphQL gateway returns a 504 on a single
+// `donations(fromDate, toDate)` query once the requested range gets large — a
+// ~1-month window now exceeds the ~60s gateway limit, which broke Ashley's
+// monthly /calculate export (issue Giveth/giveth-dapps-v2#5569). Empirically the
+// query costs ~2.5s per day of range, so we split the range into sub-windows
+// that each return well under the timeout, fetch them with bounded concurrency,
+// and combine the results. Both knobs are env-overridable so ops can retune them
+// as impact-graph's performance changes without a code release.
+// Reads a numeric env knob, falling back to `fallback` when unset or
+// non-numeric, then clamps to a whole number >= min. Sanitizing at parse time
+// stops a fat-fingered ops override from breaking the windowed fetch — e.g. a
+// fractional window count (moment rounds fractional days to whole, so 0.25 days
+// would round to 0 and infinite-loop), a 0/negative concurrency (would remove
+// the cap entirely), or a NaN/negative retry count (would skip the fetch and
+// throw `undefined`). See issue Giveth/giveth-dapps-v2#5569.
+export const clampedNumberFromEnv = (
+  raw: string | undefined,
+  fallback: number,
+  min: number,
+): number => {
+  const parsed = Number(raw)
+  const value = Number.isFinite(parsed) ? parsed : fallback
+  return Math.max(min, Math.round(value))
+}
+
+// Whole days per sub-window, minimum 1 (moment can't advance by a fractional day).
+const DONATIONS_QUERY_MAX_WINDOW_DAYS = clampedNumberFromEnv(
+  process.env.DONATIONS_QUERY_MAX_WINDOW_DAYS,
+  5,
+  1,
+)
+// Kept low on purpose: the giveth.io gateway returns 503 (Service Unavailable)
+// when too many heavy donation queries arrive at once, so we trickle the
+// sub-windows rather than fan them all out (issue Giveth/giveth-dapps-v2#5569).
+// Minimum 1 so a 0/negative override serializes rather than removing the cap.
+const DONATIONS_QUERY_CONCURRENCY = clampedNumberFromEnv(
+  process.env.DONATIONS_QUERY_CONCURRENCY,
+  2,
+  1,
+)
+// A single sub-window failing (transient 503/504/network blip from the gateway)
+// must not fail the whole report — retry it with exponential backoff.
+const DONATIONS_QUERY_MAX_RETRIES = clampedNumberFromEnv(
+  process.env.DONATIONS_QUERY_MAX_RETRIES,
+  4,
+  0,
+)
+const DONATIONS_QUERY_RETRY_BASE_MS = clampedNumberFromEnv(
+  process.env.DONATIONS_QUERY_RETRY_BASE_MS,
+  1500,
+  0,
+)
+const GIVETHIO_DATE_FORMAT = 'YYYY/MM/DD-HH:mm:ss'
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise(resolve => setTimeout(resolve, ms))
+
+// Runs a single donations sub-window query, retrying transient gateway failures
+// (503/504/timeouts) with exponential backoff before giving up.
+const requestDonationsWindow = async (
+  query: string,
+  label: string,
+): Promise<{ donations?: GivethIoDonation[] }> => {
+  let lastError: unknown
+  for (let attempt = 0; attempt <= DONATIONS_QUERY_MAX_RETRIES; attempt += 1) {
+    try {
+      return await request(`${givethiobaseurl}/graphql`, query)
+    } catch (error) {
+      lastError = error
+      if (attempt === DONATIONS_QUERY_MAX_RETRIES) {
+        break
+      }
+      const delay = DONATIONS_QUERY_RETRY_BASE_MS * Math.pow(2, attempt)
+      console.log(
+        `donations sub-window ${label} failed (attempt ${attempt + 1}/${
+          DONATIONS_QUERY_MAX_RETRIES + 1
+        }), retrying in ${delay}ms`,
+        error instanceof Error ? error.message : error,
+      )
+      await sleep(delay)
+    }
+  }
+  // Defensive: with the retry count clamped to >= 0 the loop always runs at
+  // least once, so lastError is set — but never surface a bare `undefined`.
+  throw (
+    lastError ??
+    new Error(`donations sub-window ${label} failed (no attempt was made)`)
+  )
+}
+
+// Splits [beginDate, endDate] (API format YYYY/MM/DD-HH:mm:ss) into contiguous
+// sub-windows no longer than DONATIONS_QUERY_MAX_WINDOW_DAYS each. Consecutive
+// windows share a boundary second (window N's end === window N+1's start) so the
+// union covers the whole range with no gap; a donation landing exactly on a
+// shared boundary can be fetched twice and is removed later by dedupeDonationsById.
+// Falls back to a single window (the original range) when the range already fits
+// or the dates can't be parsed — downstream validation handles bad input.
+export const splitDonationDateRange = (
+  beginDate: string,
+  endDate: string,
+  maxWindowDays: number = DONATIONS_QUERY_MAX_WINDOW_DAYS,
+): Array<{ from: string; to: string }> => {
+  // Whole days, at least 1. moment's .add() rounds a fractional day count to the
+  // nearest whole day, so a fractional window (e.g. 0.25) would advance the
+  // cursor by 0 and loop forever — sanitize defensively even though the module
+  // knob is already clamped (issue Giveth/giveth-dapps-v2#5569).
+  const windowDays = Number.isFinite(maxWindowDays)
+    ? Math.max(1, Math.round(maxWindowDays))
+    : 0
+  const start = moment.utc(beginDate, GIVETHIO_DATE_FORMAT, true)
+  const end = moment.utc(endDate, GIVETHIO_DATE_FORMAT, true)
+  if (!start.isValid() || !end.isValid() || !end.isAfter(start) || windowDays <= 0) {
+    return [{ from: beginDate, to: endDate }]
+  }
+
+  const windows: Array<{ from: string; to: string }> = []
+  let cursor = start.clone()
+  while (cursor.isBefore(end)) {
+    const next = moment.min(cursor.clone().add(windowDays, 'days'), end)
+    // Defensive: a non-advancing window would loop forever. Emit one final
+    // window covering the remainder and stop.
+    if (!next.isAfter(cursor)) {
+      windows.push({
+        from: cursor.format(GIVETHIO_DATE_FORMAT),
+        to: end.format(GIVETHIO_DATE_FORMAT),
+      })
+      break
+    }
+    windows.push({
+      from: cursor.format(GIVETHIO_DATE_FORMAT),
+      to: next.format(GIVETHIO_DATE_FORMAT),
+    })
+    cursor = next.clone()
+  }
+  return windows.length > 0 ? windows : [{ from: beginDate, to: endDate }]
+}
+
+// Runs async tasks with at most `limit` in flight at once, preserving input
+// order in the returned results. Keeps concurrent load on the giveth.io gateway
+// bounded so individual sub-window requests stay well under its timeout.
+export const runWithConcurrency = async <T>(
+  tasks: Array<() => Promise<T>>,
+  limit: number,
+): Promise<T[]> => {
+  const results: T[] = new Array(tasks.length)
+  // An invalid limit (0, negative, NaN) serializes rather than fanning out every
+  // task at once — the opposite of the throttle's intent (Giveth/giveth-dapps-v2#5569).
+  const effectiveLimit =
+    Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 1
+  let nextIndex = 0
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const current = nextIndex
+      nextIndex += 1
+      if (current >= tasks.length) {
+        return
+      }
+      results[current] = await tasks[current]()
+    }
+  }
+  const workerCount = Math.min(effectiveLimit, tasks.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
+}
+
+// Removes donations that appear more than once by their v5 id (the only way the
+// same donation can show up twice is the shared boundary second between adjacent
+// sub-windows). Rows without an id are always kept.
+export const dedupeDonationsById = (
+  donations: GivethIoDonation[],
+): GivethIoDonation[] => {
+  const seenIds = new Set<string>()
+  const deduped: GivethIoDonation[] = []
+  for (const donation of donations) {
+    const id =
+      donation && donation.id !== undefined && donation.id !== null
+        ? String(donation.id)
+        : undefined
+    if (id !== undefined) {
+      if (seenIds.has(id)) {
+        continue
+      }
+      seenIds.add(id)
+    }
+    deduped.push(donation)
+  }
+  return deduped
+}
+
+// Fetches every giveth.io donation in [beginDate, endDate] by splitting the
+// range into gateway-safe sub-windows (see splitDonationDateRange), running them
+// with bounded concurrency, then concatenating and deduping by id so the result
+// matches what a single full-range query would have returned. `buildQuery`
+// produces the GraphQL document for one sub-window (callers select different
+// fields).
+const fetchGivethIoDonationsInWindows = async (
+  beginDate: string,
+  endDate: string,
+  buildQuery: (fromQueryDate: string, toQueryDate: string) => string,
+): Promise<GivethIoDonation[]> => {
+  const windows = splitDonationDateRange(beginDate, endDate)
+  const tasks = windows.map(({ from, to }, index) => async () => {
+    const fromQueryDate = toGivethIoQueryDate(from, 'startDate')
+    const toQueryDate = toGivethIoQueryDate(to, 'endDate')
+    const result = await requestDonationsWindow(
+      buildQuery(fromQueryDate, toQueryDate),
+      `${index + 1}/${windows.length} [${from} -> ${to}]`,
+    )
+    return (result?.donations || []) as GivethIoDonation[]
+  })
+
+  const windowResults = await runWithConcurrency(
+    tasks,
+    DONATIONS_QUERY_CONCURRENCY,
+  )
+  const combined = ([] as GivethIoDonation[]).concat(...windowResults)
+  return windows.length > 1 ? dedupeDonationsById(combined) : combined
+}
+
 // "Master" donor name = the donor's full profile name. v5 has no dedicated
 // column, so we compose first + last name and fall back to the display name.
 // Each part is trimmed before joining so unsanitized inputs (e.g.
@@ -253,12 +472,12 @@ export const getGivbacksRoundDonations = async (
   // Single v6 Core fetch. Splitting buckets locally avoids two HTTP calls
   // and the eligibility drift that could otherwise occur if a donation
   // completed between calls (issue #323; previously called v6 once for
-  // eligible + once for all).
+  // eligible + once for all). getEligibleDonations is v5-only, so we fetch and
+  // merge v6 Core ourselves below — this is the one path that combines v5 + v6.
   const v5EligibleP = getEligibleDonations({
     ...params,
     eligible: true,
     enforceTokenEligibility: true,
-    skipV6Fetch: true,
   })
   const v6DonationsP = getV6EligibleDonations({
     ...params,
@@ -459,11 +678,6 @@ export const getEligibleDonations = async (
     justCountListed?: boolean,
     includeBelowMinDonations?: boolean,
     enforceTokenEligibility?: boolean,
-    // When true, skip the v6 Core fetch and return v5-only data. Set by the
-    // round-export orchestrator (issue #323) which fetches v6 itself ONCE
-    // and merges the buckets locally — avoids two HTTP round-trips against
-    // v6 Core and the eligible/ineligible drift that can occur between them.
-    skipV6Fetch?: boolean,
   }): Promise<FormattedDonation[]> => {
   try {
     const {
@@ -477,7 +691,6 @@ export const getEligibleDonations = async (
       givethCommunityProjectSlug,
       includeBelowMinDonations,
       enforceTokenEligibility,
-      skipV6Fetch,
     } = params
     const eligible = params.eligible === undefined ? true : params.eligible
     // Strict UTC parsing so the donation window matches the round-end price
@@ -493,16 +706,18 @@ export const getEligibleDonations = async (
       throw new Error('Invalid endDate')
     }
 
-    // givethio get time in this format YYYYMMDD HH:m:ss
-    const fromDate = toGivethIoQueryDate(beginDate, 'startDate')
-    const toDate = toGivethIoQueryDate(endDate, 'endDate')
-    const query = gql`
+    // givethio get time in this format YYYYMMDD HH:m:ss. Fetched in gateway-safe
+    // sub-windows so a large (e.g. month-long) range doesn't 504 on the single
+    // donations query (issue Giveth/giveth-dapps-v2#5569). `id` is selected so a
+    // donation duplicated across a shared sub-window boundary can be deduped.
+    const buildQuery = (fromQueryDate: string, toQueryDate: string) => gql`
         {
           donations(
-              fromDate:"${fromDate}", 
-              toDate:"${toDate}"
+              fromDate:"${fromQueryDate}",
+              toDate:"${toQueryDate}"
           ) {
-            valueUsd  
+            id
+            valueUsd
             createdAt
             currency
             transactionId
@@ -556,8 +771,12 @@ export const getEligibleDonations = async (
         }
     `;
 
-    const result = await request(`${givethiobaseurl}/graphql`, query)
-    const rawDonationsFilterByChain = groupDonationsByParentRecurringId(result.donations)
+    const rawDonations = await fetchGivethIoDonationsInWindows(
+      beginDate,
+      endDate,
+      buildQuery,
+    )
+    const rawDonationsFilterByChain = groupDonationsByParentRecurringId(rawDonations)
     let donationsToVerifiedProjects: GivethIoDonation[] = rawDonationsFilterByChain
       .filter(
         (donation: GivethIoDonation) =>
@@ -744,21 +963,13 @@ export const getEligibleDonations = async (
       return notEligibleDonations
     }
 
-    // Caller (e.g. round export) is fetching v6 itself; return v5-only.
-    if (skipV6Fetch) {
-      return eligibleDonations
-    }
-
-    const v6EligibleDonations = await getV6EligibleDonations({
-      beginDate,
-      endDate,
-      niceWhitelistTokens,
-      niceProjectSlugs,
-      minEligibleValueUsd,
-      givethCommunityProjectSlug,
-    })
-
-    return mergeAndDedupeDonations(eligibleDonations, v6EligibleDonations)
+    // v5-only. The legacy GIVbacks endpoints (/calculate, /calculate-updated,
+    // /eligible-donations, /not-eligible-donations, /eligible-donations-for-nice-token)
+    // are an unchanged March-2026 reference and must NOT pull in v6 Core
+    // donations (issue Giveth/giveth-dapps-v2#5569 — Ashley's workflow). The new
+    // combined v5+v6 system lives in /givbacks-round-report, which fetches and
+    // merges v6 Core itself (see getGivbacksRoundDonations / getV6EligibleDonations).
+    return eligibleDonations
 
 
   } catch (e) {
@@ -782,17 +993,19 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
     if (String(secondDate) === 'Invalid date') {
       throw new Error('Invalid endDate')
     }
-    // givethio get time in this format YYYYMMDD HH:m:ss
-    const fromDate = toGivethIoQueryDate(beginDate, 'startDate')
-    const toDate = toGivethIoQueryDate(endDate, 'endDate')
-    const query = gql`
+    // givethio get time in this format YYYYMMDD HH:m:ss. Fetched in gateway-safe
+    // sub-windows so a large range doesn't 504 on the single donations query
+    // (issue Giveth/giveth-dapps-v2#5569). `id` is selected so a donation
+    // duplicated across a shared sub-window boundary can be deduped.
+    const buildQuery = (fromQueryDate: string, toQueryDate: string) => gql`
         {
           donations(
-              fromDate:"${fromDate}", 
-              toDate:"${toDate}"
+              fromDate:"${fromQueryDate}",
+              toDate:"${toQueryDate}"
           ) {
-            valueUsd  
-            createdAt 
+            id
+            valueUsd
+            createdAt
             currency
             transactionId
             transactionNetworkId
@@ -826,8 +1039,11 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
         }
     `;
 
-    const result = await request(`${givethiobaseurl}/graphql`, query)
-    const rawDonations = result.donations
+    const rawDonations = await fetchGivethIoDonationsInWindows(
+      beginDate,
+      endDate,
+      buildQuery,
+    )
     let donationsToVerifiedProjects = rawDonations
       .filter(
         (donation: GivethIoDonation) =>
@@ -854,6 +1070,7 @@ export const getVerifiedPurpleListDonations = async (beginDate: string, endDate:
         createdAt: moment(item.createdAt).format('YYYY-MM-DD-HH:mm:ss'),
         valueUsd: item.valueUsd,
         givbackFactor: item.givbackFactor,
+        anonymous: item.anonymous,
         giverAddress: donationGiverAddress(item),
         txHash,
         network: getNetworkNameById(networkId),
